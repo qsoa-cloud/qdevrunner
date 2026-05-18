@@ -9,8 +9,8 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 
-	"github.com/qsoa-cloud/qdevrunner/registry"
-	"github.com/qsoa-cloud/qdevrunner/transport"
+	"gopkg.qsoa.cloud/qdevrunner/registry"
+	"gopkg.qsoa.cloud/qdevrunner/transport"
 )
 
 // FromRunner is the gRPC proxy that services use to call other services.

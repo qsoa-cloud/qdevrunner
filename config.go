@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/qsoa-cloud/qdevrunner/mcp"
+	"gopkg.qsoa.cloud/qdevrunner/mcp"
 )
 
 var configPath = flag.String("config", "qdevrunner.ini", "Path to config file")

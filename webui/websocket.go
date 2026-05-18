@@ -8,9 +8,9 @@ import (
 
 	"github.com/gorilla/websocket"
 
-	"github.com/qsoa-cloud/qdevrunner/logstore"
-	"github.com/qsoa-cloud/qdevrunner/metricsstore"
-	"github.com/qsoa-cloud/qdevrunner/tracer"
+	"gopkg.qsoa.cloud/qdevrunner/logstore"
+	"gopkg.qsoa.cloud/qdevrunner/metricsstore"
+	"gopkg.qsoa.cloud/qdevrunner/tracer"
 )
 
 var upgrader = websocket.Upgrader{

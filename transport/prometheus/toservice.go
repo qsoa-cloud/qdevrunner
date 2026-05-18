@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/common/model"
 
-	"github.com/qsoa-cloud/qdevrunner/metricsstore"
+	"gopkg.qsoa.cloud/qdevrunner/metricsstore"
 )
 
 // ToService scrapes Prometheus metrics from a service's prometheus.sock.

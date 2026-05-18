@@ -9,8 +9,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/qsoa-cloud/qdevrunner/transport"
-	"github.com/qsoa-cloud/qdevrunner/transport/mysql/pb"
+	"gopkg.qsoa.cloud/qdevrunner/transport"
+	"gopkg.qsoa.cloud/qdevrunner/transport/mysql/pb"
 )
 
 type MySql struct {

@@ -1,4 +1,4 @@
-module github.com/qsoa-cloud/qdevrunner
+module gopkg.qsoa.cloud/qdevrunner
 
 go 1.25.8
 

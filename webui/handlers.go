@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/qsoa-cloud/qdevrunner/instance"
-	mcppkg "github.com/qsoa-cloud/qdevrunner/mcp"
+	"gopkg.qsoa.cloud/qdevrunner/instance"
+	mcppkg "gopkg.qsoa.cloud/qdevrunner/mcp"
 )
 
 func (s *Server) writeJSON(w http.ResponseWriter, v interface{}) {

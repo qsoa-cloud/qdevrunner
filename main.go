@@ -12,17 +12,17 @@ import (
 
 	mcpgoserver "github.com/mark3labs/mcp-go/server"
 
-	"github.com/qsoa-cloud/qdevrunner/dfs"
-	"github.com/qsoa-cloud/qdevrunner/email"
-	emailpkg "github.com/qsoa-cloud/qdevrunner/email/emailpb"
-	"github.com/qsoa-cloud/qdevrunner/instance"
-	"github.com/qsoa-cloud/qdevrunner/logstore"
-	mcppkg "github.com/qsoa-cloud/qdevrunner/mcp"
-	"github.com/qsoa-cloud/qdevrunner/metricsstore"
-	"github.com/qsoa-cloud/qdevrunner/registry"
-	"github.com/qsoa-cloud/qdevrunner/tracer"
-	"github.com/qsoa-cloud/qdevrunner/watcher"
-	"github.com/qsoa-cloud/qdevrunner/webui"
+	"gopkg.qsoa.cloud/qdevrunner/dfs"
+	"gopkg.qsoa.cloud/qdevrunner/email"
+	emailpkg "gopkg.qsoa.cloud/qdevrunner/email/emailpb"
+	"gopkg.qsoa.cloud/qdevrunner/instance"
+	"gopkg.qsoa.cloud/qdevrunner/logstore"
+	mcppkg "gopkg.qsoa.cloud/qdevrunner/mcp"
+	"gopkg.qsoa.cloud/qdevrunner/metricsstore"
+	"gopkg.qsoa.cloud/qdevrunner/registry"
+	"gopkg.qsoa.cloud/qdevrunner/tracer"
+	"gopkg.qsoa.cloud/qdevrunner/watcher"
+	"gopkg.qsoa.cloud/qdevrunner/webui"
 )
 
 func main() {

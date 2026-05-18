@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/qsoa-cloud/qdevrunner/dfs/dfspb"
-	"github.com/qsoa-cloud/qdevrunner/transport"
+	"gopkg.qsoa.cloud/qdevrunner/dfs/dfspb"
+	"gopkg.qsoa.cloud/qdevrunner/transport"
 )
 
 // FromRunner creates a per-instance DFS gRPC server that proxies to the shared DFS server.

@@ -8,11 +8,11 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/qsoa-cloud/qdevrunner/instance"
-	"github.com/qsoa-cloud/qdevrunner/logstore"
-	mcppkg "github.com/qsoa-cloud/qdevrunner/mcp"
-	"github.com/qsoa-cloud/qdevrunner/metricsstore"
-	"github.com/qsoa-cloud/qdevrunner/tracer"
+	"gopkg.qsoa.cloud/qdevrunner/instance"
+	"gopkg.qsoa.cloud/qdevrunner/logstore"
+	mcppkg "gopkg.qsoa.cloud/qdevrunner/mcp"
+	"gopkg.qsoa.cloud/qdevrunner/metricsstore"
+	"gopkg.qsoa.cloud/qdevrunner/tracer"
 )
 
 // Server is the Web UI HTTP server.

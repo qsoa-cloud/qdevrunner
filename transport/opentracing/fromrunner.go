@@ -8,8 +8,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/qsoa-cloud/qdevrunner/tracer"
-	"github.com/qsoa-cloud/qdevrunner/transport"
+	"gopkg.qsoa.cloud/qdevrunner/tracer"
+	"gopkg.qsoa.cloud/qdevrunner/transport"
 )
 
 type OpenTracing struct {

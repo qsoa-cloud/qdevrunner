@@ -21,7 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/qsoa-cloud/qdevrunner/email/emailpb"
+	"gopkg.qsoa.cloud/qdevrunner/email/emailpb"
 )
 
 type MailboxConfig struct {

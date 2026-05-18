@@ -14,7 +14,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
-	"github.com/qsoa-cloud/qdevrunner/dfs/dfspb"
+	"gopkg.qsoa.cloud/qdevrunner/dfs/dfspb"
 )
 
 const MaxChunk = 1024 * 1024

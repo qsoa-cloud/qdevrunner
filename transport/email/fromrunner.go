@@ -5,8 +5,8 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/qsoa-cloud/qdevrunner/email/emailpb"
-	"github.com/qsoa-cloud/qdevrunner/transport"
+	"gopkg.qsoa.cloud/qdevrunner/email/emailpb"
+	"gopkg.qsoa.cloud/qdevrunner/transport"
 )
 
 // FromRunner creates a per-instance email gRPC server that proxies to the shared email server.
