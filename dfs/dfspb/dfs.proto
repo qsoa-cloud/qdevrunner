@@ -1,0 +1,124 @@
+syntax = "proto3";
+
+option go_package = ".;dfspb";
+
+import "google/protobuf/empty.proto";
+
+service Dfs {
+  rpc File(stream FileReq) returns (stream FileResp);
+  rpc MkDir (MkDirReq) returns (google.protobuf.Empty);
+  rpc RemoveAll (RemoveAllReq) returns (google.protobuf.Empty);
+  rpc Rename (RenameReq) returns (google.protobuf.Empty);
+  rpc Stat (StatReq) returns (StatResp);
+}
+
+message FileReq {
+  message Open {
+    string bucket = 1;
+    string filename = 2;
+    int64 flag = 3;
+  }
+  message Seek {
+    int64 offset = 1;
+    int64 whence = 2;
+  }
+  message Write {
+    bytes data = 1;
+  }
+  message Read {
+    int64 n = 1;
+  }
+  message Close {}
+  message ReadDir {
+    int64 n = 1;
+  }
+  message Stat {}
+
+  oneof msg {
+    Open open = 1;
+    Seek seek = 2;
+    Write write = 3;
+    Read read = 4;
+    Close close = 5;
+    ReadDir readDir = 6;
+    Stat stat = 7;
+  }
+}
+
+message FileResp {
+  message Error {
+    enum Type {
+      OTHER = 0;
+      EXIST = 1;
+      NOT_EXIST = 2;
+      EOF = 3;
+      UNEXPECTED_EOF = 4;
+    }
+    Type type = 1;
+    string msg = 2;
+  }
+  message Open {
+    Error error = 1;
+  }
+  message Seek {
+    int64 n = 1;
+    Error error = 2;
+  }
+  message Write {
+    int64 n = 1;
+    Error error = 2;
+  }
+  message Read {
+    bytes data = 1;
+    Error error = 2;
+  }
+  message Close {
+    Error error = 1;
+  }
+  message ReadDir {
+    repeated StatResp files = 1;
+    Error error = 2;
+  }
+  message Stat {
+    StatResp file = 1;
+    Error error = 2;
+  }
+
+  oneof msg {
+    Open open = 1;
+    Seek seek = 2;
+    Write write = 3;
+    Read read = 4;
+    Close close = 5;
+    ReadDir readDir = 6;
+    Stat stat = 7;
+  }
+}
+
+message MkDirReq {
+  string bucket = 1;
+  string filename = 2;
+}
+
+message RemoveAllReq {
+  string bucket = 1;
+  string filename = 2;
+}
+
+message RenameReq {
+  string bucket = 1;
+  string oldName = 2;
+  string newName = 3;
+}
+
+message StatReq {
+  string bucket = 1;
+  string filename = 2;
+}
+
+message StatResp {
+  string name = 1;
+  int64 size = 2 ;
+  int64 modTime = 3;
+  bool isDir = 4;
+}

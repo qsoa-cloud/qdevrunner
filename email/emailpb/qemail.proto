@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+option go_package = ".;emailpb";
+
+import "google/protobuf/empty.proto";
+
+service QEmail {
+  rpc ResolveMailbox(ResolveMailboxReq) returns (ResolveMailboxResp);
+  rpc SendEmail(SendEmailReq) returns (SendEmailResp);
+  rpc ListMessages(ListMessagesReq) returns (ListMessagesResp);
+  rpc GetMessage(GetMessageReq) returns (GetMessageResp);
+  rpc DeleteMessage(DeleteMessageReq) returns (google.protobuf.Empty);
+  rpc MoveMessage(MoveMessageReq) returns (google.protobuf.Empty);
+}
+
+message ResolveMailboxReq {
+  string address = 1;
+}
+
+message ResolveMailboxResp {
+  uint64 mailbox_id = 1;
+}
+
+message SendEmailReq {
+  uint64 mailbox_id = 1;
+  repeated string to = 2;
+  repeated string cc = 3;
+  string subject = 4;
+  string text_body = 5;
+  string html_body = 6;
+  repeated Attachment attachments = 7;
+  repeated string bcc = 8;
+  repeated Header headers = 9;
+  string from_name = 10;
+}
+
+message Attachment {
+  string filename = 1;
+  string content_type = 2;
+  bytes data = 3;
+}
+
+message Header {
+  string key = 1;
+  string value = 2;
+}
+
+message SendEmailResp {
+  string message_id = 1;
+}
+
+message ListMessagesReq {
+  uint64 mailbox_id = 1;
+  string folder = 2;
+  uint32 offset = 3;
+  uint32 limit = 4;
+}
+
+message ListMessagesResp {
+  repeated MessageSummary messages = 1;
+  uint32 total = 2;
+}
+
+message MessageSummary {
+  string uid = 1;
+  string from = 2;
+  string subject = 3;
+  int64 date = 4;
+  bool seen = 5;
+  bool flagged = 6;
+  uint32 size = 7;
+  repeated string to = 8;
+}
+
+message GetMessageReq {
+  uint64 mailbox_id = 1;
+  string uid = 2;
+  string folder = 3;
+}
+
+message GetMessageResp {
+  string from = 1;
+  repeated string to = 2;
+  repeated string cc = 3;
+  string subject = 4;
+  int64 date = 5;
+  string text_body = 6;
+  string html_body = 7;
+  repeated Attachment attachments = 8;
+  string raw_headers = 9;
+}
+
+message DeleteMessageReq {
+  uint64 mailbox_id = 1;
+  string uid = 2;
+  string folder = 3;
+}
+
+message MoveMessageReq {
+  uint64 mailbox_id = 1;
+  string uid = 2;
+  string to_folder = 3;
+}

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = ".;pb";
+
+service MySql {
+  rpc GetDsn (GetDsnReq) returns (GetDsnResp);
+}
+
+message GetDsnReq {
+  string name = 1;
+}
+
+message GetDsnResp {
+  string dsn = 1;
+}

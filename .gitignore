@@ -1,0 +1,13 @@
+# Local binary
+/qdevrunner
+
+# Local user config (qdevrunner creates one on first run)
+/qdevrunner.ini
+
+# JetBrains
+.idea/
+*.iml
+
+# OS / editor
+.DS_Store
+*.swp
