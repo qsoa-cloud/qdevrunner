@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	mcpgoserver "github.com/mark3labs/mcp-go/server"
+	_ "gopkg.qsoa.cloud/grpccodec/register"
 
 	"gopkg.qsoa.cloud/qdevrunner/dfs"
 	"gopkg.qsoa.cloud/qdevrunner/email"
