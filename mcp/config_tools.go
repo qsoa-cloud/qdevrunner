@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
-	"unicode"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -229,8 +228,10 @@ func validSecretPath(path string) bool {
 	return true
 }
 
+var secretService = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
 func validSecretService(name string) bool {
-	return name != "" && !strings.ContainsAny(name, "/=") && !strings.ContainsFunc(name, unicode.IsSpace)
+	return secretService.MatchString(name)
 }
 
 func makeAddSecret(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -246,6 +247,9 @@ func makeAddSecret(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.
 		}
 		if !validSecretPath(path) {
 			return mcp.NewToolResultError(fmt.Sprintf("invalid secret path %q: use 1-4 segments of [A-Za-z0-9._-]{1,64} joined by /", path)), nil
+		}
+		if len(value) > 65536 {
+			return mcp.NewToolResultError("value exceeds 65536 bytes"), nil
 		}
 		deps.Config.AddSecret(service, path, value)
 		if err := saveConfig(deps); err != nil {

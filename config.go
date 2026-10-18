@@ -393,10 +393,19 @@ func (c *config) Save(path string) error {
 		b.WriteByte('\n')
 	}
 
-	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
 		return err
 	}
-	return os.Chmod(path, 0o600)
+	if err := f.Chmod(0o600); err != nil {
+		f.Close()
+		return err
+	}
+	if _, err := f.WriteString(b.String()); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func writeField(b *strings.Builder, key, value string) {

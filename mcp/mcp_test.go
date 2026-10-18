@@ -534,7 +534,7 @@ func TestAddSecretRejectsInvalidService(t *testing.T) {
 	cfg := deps.Config.(*mockConfig)
 	deps.ConfigPath = filepath.Join(t.TempDir(), "test.ini")
 
-	for _, svc := range []string{"", "a/b", "a b", "a\tb", "a=b"} {
+	for _, svc := range []string{"", "a/b", "a b", "a\tb", "a=b", "#x", ";x", "[x]"} {
 		result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": svc, "path": "token", "value": "s3cr3t"})
 		if !result.IsError {
 			t.Errorf("service %q accepted", svc)
@@ -567,5 +567,31 @@ func TestGetConfigHidesSecretValues(t *testing.T) {
 	}
 	if strings.Contains(rtext, "s3cr3t-value") {
 		t.Errorf("config resource contains the secret value: %s", rtext)
+	}
+}
+
+func TestAddSecretRejectsLargeValue(t *testing.T) {
+	deps := testDeps()
+	cfg := deps.Config.(*mockConfig)
+	deps.ConfigPath = filepath.Join(t.TempDir(), "test.ini")
+
+	big := strings.Repeat("a", 65537)
+	result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": "api", "path": "big", "value": big})
+	if !result.IsError {
+		t.Error("value of 65537 bytes accepted")
+	}
+	if strings.Contains(getTextContent(t, result), strings.Repeat("a", 64)) {
+		t.Error("error contains the value")
+	}
+	if len(cfg.secrets) != 0 {
+		t.Error("oversized secret stored")
+	}
+
+	result = callTool(t, makeAddSecret(deps), map[string]interface{}{"service": "api", "path": "max", "value": big[:65536]})
+	if result.IsError {
+		t.Fatalf("value of 65536 bytes rejected: %s", getTextContent(t, result))
+	}
+	if len(cfg.secrets["api"]["max"]) != 65536 {
+		t.Error("65536-byte secret not stored")
 	}
 }

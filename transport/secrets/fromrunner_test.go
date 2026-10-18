@@ -2,7 +2,10 @@ package secrets
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -35,5 +38,32 @@ func TestGet(t *testing.T) {
 	}
 	if status.Convert(err).Message() != "secret not found" {
 		t.Errorf("message %q", status.Convert(err).Message())
+	}
+}
+
+func TestServeSocketMode(t *testing.T) {
+	addr := filepath.Join(t.TempDir(), "secrets.sock")
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- NewFromRunner(addr, "api", func(string, string) (string, bool) { return "", false }).Serve(ctx)
+	}()
+	defer func() {
+		cancel()
+		<-done
+	}()
+
+	var fi os.FileInfo
+	var err error
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		if fi, err = os.Stat(addr); err == nil && fi.Mode().Perm() == 0o600 {
+			break
+		}
+	}
+	if err != nil {
+		t.Fatalf("socket not created: %v", err)
+	}
+	if m := fi.Mode().Perm(); m != 0o600 {
+		t.Errorf("socket mode %o, want 600", m)
 	}
 }
