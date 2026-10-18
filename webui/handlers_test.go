@@ -19,6 +19,7 @@ type mockConfigAccessor struct {
 	buckets   map[string]string
 	mailboxes map[string]bool
 	envVars   map[string]string
+	secrets   map[string]map[string]string
 	saved     bool
 }
 
@@ -28,6 +29,7 @@ func newMockConfigAccessor() *mockConfigAccessor {
 		buckets:   make(map[string]string),
 		mailboxes: make(map[string]bool),
 		envVars:   make(map[string]string),
+		secrets:   make(map[string]map[string]string),
 	}
 }
 
@@ -60,6 +62,30 @@ func (m *mockConfigAccessor) GetMailboxes() []string {
 }
 func (m *mockConfigAccessor) AddMailbox(a, s, sp, i, ip string) { m.mailboxes[a] = true }
 func (m *mockConfigAccessor) RemoveMailbox(a string)            { delete(m.mailboxes, a) }
+func (m *mockConfigAccessor) GetSecret(svc, p string) (string, bool) {
+	v, ok := m.secrets[svc][p]
+	return v, ok
+}
+func (m *mockConfigAccessor) SecretPaths() map[string][]string {
+	r := make(map[string][]string)
+	for svc, paths := range m.secrets {
+		for p := range paths {
+			r[svc] = append(r[svc], p)
+		}
+	}
+	return r
+}
+func (m *mockConfigAccessor) AddSecret(svc, p, v string) {
+	if m.secrets[svc] == nil {
+		m.secrets[svc] = make(map[string]string)
+	}
+	m.secrets[svc][p] = v
+}
+func (m *mockConfigAccessor) RemoveSecret(svc, p string) bool {
+	_, ok := m.secrets[svc][p]
+	delete(m.secrets[svc], p)
+	return ok
+}
 
 func testServer() *Server {
 	ts := tracer.NewStore(100)
@@ -287,5 +313,22 @@ func TestHandleConfigManagementMissingAction(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", w.Code)
+	}
+}
+
+func TestHandleConfigHidesSecretValues(t *testing.T) {
+	s := testServer()
+	s.mcpDeps.Config.AddSecret("api", "db/password", "s3cr3t-value")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	w := httptest.NewRecorder()
+	s.handleConfig(w, req)
+
+	body := w.Body.String()
+	if !strings.Contains(body, "db/password") {
+		t.Errorf("config lacks the secret path: %s", body)
+	}
+	if strings.Contains(body, "s3cr3t-value") {
+		t.Errorf("config contains the secret value: %s", body)
 	}
 }

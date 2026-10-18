@@ -3,6 +3,9 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"strings"
+	"unicode"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -60,6 +63,19 @@ func registerConfigTools(s *server.MCPServer, deps *Deps) {
 		mcp.WithDescription("Remove an environment variable from the project configuration. Running services keep the old value until restarted — call restart_service on any service that reads this variable so it picks up the change."),
 		mcp.WithString("name", mcp.Required(), mcp.Description("Variable name")),
 	), makeRemoveEnv(deps))
+
+	s.AddTool(mcp.NewTool("add_secret",
+		mcp.WithDescription("Store a secret for a service. The service reads it with qsecrets.Get. The value is never shown again."),
+		mcp.WithString("service", mcp.Required(), mcp.Description("Service name")),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Secret path: 1-4 segments of [A-Za-z0-9._-]{1,64} joined by /")),
+		mcp.WithString("value", mcp.Required(), mcp.Description("Secret value")),
+	), makeAddSecret(deps))
+
+	s.AddTool(mcp.NewTool("remove_secret",
+		mcp.WithDescription("Remove a service's secret"),
+		mcp.WithString("service", mcp.Required(), mcp.Description("Service name")),
+		mcp.WithString("path", mcp.Required(), mcp.Description("Secret path")),
+	), makeRemoveSecret(deps))
 
 	// Service management.
 	s.AddTool(mcp.NewTool("add_service",
@@ -195,6 +211,61 @@ func makeRemoveEnv(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.
 			return mcp.NewToolResultError(err.Error()), nil
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("Env %q removed. Running services keep the old value until restarted — call restart_service for each service that reads this variable.", name)), nil
+	}
+}
+
+var secretSegment = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
+
+func validSecretPath(path string) bool {
+	segs := strings.Split(path, "/")
+	if len(segs) > 4 {
+		return false
+	}
+	for _, seg := range segs {
+		if seg == "." || seg == ".." || !secretSegment.MatchString(seg) {
+			return false
+		}
+	}
+	return true
+}
+
+func validSecretService(name string) bool {
+	return name != "" && !strings.ContainsAny(name, "/=") && !strings.ContainsFunc(name, unicode.IsSpace)
+}
+
+func makeAddSecret(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		service, _ := req.RequireString("service")
+		path, _ := req.RequireString("path")
+		value, err := req.RequireString("value")
+		if err != nil {
+			return mcp.NewToolResultError("value is required"), nil
+		}
+		if !validSecretService(service) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid service name %q", service)), nil
+		}
+		if !validSecretPath(path) {
+			return mcp.NewToolResultError(fmt.Sprintf("invalid secret path %q: use 1-4 segments of [A-Za-z0-9._-]{1,64} joined by /", path)), nil
+		}
+		deps.Config.AddSecret(service, path, value)
+		if err := saveConfig(deps); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("Secret %s/%s saved.", service, path)), nil
+	}
+}
+
+func makeRemoveSecret(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		service, _ := req.RequireString("service")
+		path, _ := req.RequireString("path")
+		if !deps.Config.RemoveSecret(service, path) {
+			return mcp.NewToolResultError(fmt.Sprintf("secret %s/%s not found", service, path)), nil
+		}
+		if err := saveConfig(deps); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(fmt.Sprintf("Secret %s/%s removed.", service, path)), nil
 	}
 }
 

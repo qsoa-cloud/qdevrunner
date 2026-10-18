@@ -98,6 +98,7 @@ func main() {
 			Project:    cfg.Project.Name,
 			Env:        cfg.Project.Env,
 			GetEnvVars: cfg.GetEnvVars,
+			GetSecret:  cfg.GetSecret,
 			Databases:  databases,
 			BasePath:   basePath,
 		}

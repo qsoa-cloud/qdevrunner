@@ -60,6 +60,10 @@ type ConfigAccessor interface {
 	RemoveMailbox(address string)
 	AddEnv(name, value string)
 	RemoveEnv(name string)
+	GetSecret(service, path string) (string, bool)
+	SecretPaths() map[string][]string
+	AddSecret(service, path, value string)
+	RemoveSecret(service, path string) bool
 	AddService(name string, svc interface{})
 	RemoveService(name string)
 }

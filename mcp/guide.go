@@ -271,6 +271,7 @@ Services access mailboxes via:
 Use add_env tool. Variables are injected with QSOA_ prefix:
   add_env(name="API_KEY", value="secret123")
   → Service sees QSOA_API_KEY=secret123
+Secrets: add_secret / remove_secret; services read them with qsecrets.Get at start.
 
 ## Adding Services
 

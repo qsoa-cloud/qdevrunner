@@ -59,6 +59,8 @@ type config struct {
 
 	// envs is populated by parseEnvs(), not by gcfg (gcfg doesn't support arbitrary keys in a section).
 	envs map[string]string
+
+	secrets map[string]map[string]string
 }
 
 type serviceConfig struct {
@@ -272,6 +274,17 @@ func (c *config) parseINI(data []byte) error {
 			// Envs uses original key casing (not lowercased).
 			origKey := strings.TrimSpace(line[:idx])
 			c.envs[origKey] = value
+		case "secrets":
+			origKey := strings.TrimSpace(line[:idx])
+			svc, path, ok := strings.Cut(origKey, "/")
+			if !ok || svc == "" || path == "" {
+				return fmt.Errorf("secrets: invalid key %q", origKey)
+			}
+			v, err := strconv.Unquote(value)
+			if err != nil {
+				return fmt.Errorf("secrets: %s: value is not a quoted string", origKey)
+			}
+			c.AddSecret(svc, path, v)
 		}
 	}
 
@@ -353,6 +366,16 @@ func (c *config) Save(path string) error {
 		b.WriteByte('\n')
 	}
 
+	if len(c.secrets) > 0 {
+		b.WriteString("[secrets]\n")
+		for _, svc := range sortedStringMapKeys(c.secrets) {
+			for _, path := range sortedStringMapKeys(c.secrets[svc]) {
+				fmt.Fprintf(&b, "%s/%s = %s\n", svc, path, strconv.Quote(c.secrets[svc][path]))
+			}
+		}
+		b.WriteByte('\n')
+	}
+
 	// [service "name"]
 	for _, name := range sortedKeys(c.Service) {
 		svc := c.Service[name]
@@ -370,7 +393,10 @@ func (c *config) Save(path string) error {
 		b.WriteByte('\n')
 	}
 
-	return os.WriteFile(path, []byte(b.String()), 0644)
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+		return err
+	}
+	return os.Chmod(path, 0o600)
 }
 
 func writeField(b *strings.Builder, key, value string) {
@@ -389,7 +415,7 @@ func sortedKeys[V any](m map[string]*V) []string {
 	return keys
 }
 
-func sortedStringMapKeys(m map[string]string) []string {
+func sortedStringMapKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
@@ -549,6 +575,48 @@ func (c *config) RemoveEnv(name string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.envs, name)
+}
+
+func (c *config) GetSecret(service, path string) (string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	v, ok := c.secrets[service][path]
+	return v, ok
+}
+
+func (c *config) SecretPaths() map[string][]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make(map[string][]string, len(c.secrets))
+	for svc, paths := range c.secrets {
+		result[svc] = sortedStringMapKeys(paths)
+	}
+	return result
+}
+
+func (c *config) AddSecret(service, path, value string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.secrets == nil {
+		c.secrets = make(map[string]map[string]string)
+	}
+	if c.secrets[service] == nil {
+		c.secrets[service] = make(map[string]string)
+	}
+	c.secrets[service][path] = value
+}
+
+func (c *config) RemoveSecret(service, path string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, ok := c.secrets[service][path]; !ok {
+		return false
+	}
+	delete(c.secrets[service], path)
+	if len(c.secrets[service]) == 0 {
+		delete(c.secrets, service)
+	}
+	return true
 }
 
 func (c *config) AddService(name string, svc interface{}) {

@@ -59,7 +59,7 @@ func TestBuildArgs(t *testing.T) {
 	cfg := testConfig()
 	inst := New(cfg, nil, nil, nil, nil, nil, nil)
 	// Simulate discovered transports.
-	inst.transports = []string{"http", "grpc", "mysql", "dfs", "email", "tracer", "prometheus"}
+	inst.transports = []string{"http", "grpc", "mysql", "dfs", "email", "tracer", "prometheus", "secrets"}
 
 	args := inst.buildArgs()
 
@@ -102,9 +102,15 @@ func TestBuildArgs(t *testing.T) {
 		if strings.HasPrefix(arg, "-q_metrics_addr=") {
 			found["metrics"] = true
 		}
+		if strings.HasPrefix(arg, "-q_secrets_sock=") {
+			found["secrets"] = true
+			if want := "-q_secrets_sock=unix:///tmp/qdevrunner/myproject/test-svc/misc/secrets.sock"; arg != want {
+				t.Errorf("got %s, want %s", arg, want)
+			}
+		}
 	}
 
-	for _, key := range []string{"project", "env", "service", "dfs", "grpc_proxy", "grpc_addr", "mysql", "http", "tracer", "metrics"} {
+	for _, key := range []string{"project", "env", "service", "dfs", "grpc_proxy", "grpc_addr", "mysql", "http", "tracer", "metrics", "secrets"} {
 		if !found[key] {
 			t.Errorf("missing arg %q in buildArgs output: %v", key, args)
 		}
@@ -131,6 +137,9 @@ func TestBuildArgsPartialTransports(t *testing.T) {
 		}
 		if strings.HasPrefix(arg, "-q_dfs_sock=") {
 			t.Error("dfs transport should not be in args")
+		}
+		if strings.HasPrefix(arg, "-q_secrets_sock=") {
+			t.Error("secrets transport should not be in args")
 		}
 	}
 

@@ -36,6 +36,7 @@ func makeGetConfig(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.
 			"buckets":      deps.Config.GetBuckets(),
 			"mailboxes":    deps.Config.GetMailboxes(),
 			"env_vars":     deps.Config.GetEnvVars(),
+			"secrets":      deps.Config.SecretPaths(),
 		}
 
 		services := make([]string, 0, len(deps.Instances))

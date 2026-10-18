@@ -49,6 +49,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		Buckets     map[string]string               `json:"buckets"`
 		Mailboxes   []string                        `json:"mailboxes"`
 		EnvVars     map[string]string               `json:"env_vars"`
+		Secrets     map[string][]string             `json:"secrets"`
 		Services    []string                        `json:"services"`
 	}
 
@@ -64,6 +65,7 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 		Buckets:     s.mcpDeps.Config.GetBuckets(),
 		Mailboxes:   s.mcpDeps.Config.GetMailboxes(),
 		EnvVars:     s.mcpDeps.Config.GetEnvVars(),
+		Secrets:     s.mcpDeps.Config.SecretPaths(),
 		Services:    services,
 	})
 }

@@ -25,6 +25,7 @@ import (
 	"gopkg.qsoa.cloud/qdevrunner/transport/mysql"
 	"gopkg.qsoa.cloud/qdevrunner/transport/opentracing"
 	"gopkg.qsoa.cloud/qdevrunner/transport/prometheus"
+	transportSecrets "gopkg.qsoa.cloud/qdevrunner/transport/secrets"
 )
 
 type Status string
@@ -46,6 +47,7 @@ type Config struct {
 	Project   string
 	Env       string
 	GetEnvVars func() map[string]string
+	GetSecret  func(service, path string) (string, bool)
 	Databases  map[string]string
 	BasePath  string // Base temp directory for sockets
 }
@@ -207,6 +209,9 @@ func (i *Instance) buildArgs() []string {
 	if i.hasTransport("email") {
 		args = append(args, fmt.Sprintf("-q_email_sock=unix://%s", filepath.Join(i.miscDir, "email.sock")))
 	}
+	if i.hasTransport("secrets") {
+		args = append(args, fmt.Sprintf("-q_secrets_sock=unix://%s", filepath.Join(i.miscDir, "secrets.sock")))
+	}
 	if i.hasTransport("grpc") {
 		args = append(args, fmt.Sprintf("-q_grpc_proxy=unix://%s", filepath.Join(i.miscDir, "grpc_runner.sock")))
 		args = append(args, fmt.Sprintf("-q_grpc_addr=unix://%s", filepath.Join(i.tmpDir, "grpc.sock")))
@@ -273,6 +278,15 @@ func (i *Instance) StartTransports(ctx context.Context) error {
 		go func() {
 			if err := e.Serve(ctx); err != nil {
 				log.Printf("[%s] Email transport error: %v", i.cfg.Name, err)
+			}
+		}()
+	}
+
+	if i.hasTransport("secrets") && i.cfg.GetSecret != nil {
+		sec := transportSecrets.NewFromRunner(filepath.Join(i.miscDir, "secrets.sock"), i.cfg.Name, i.cfg.GetSecret)
+		go func() {
+			if err := sec.Serve(ctx); err != nil {
+				log.Printf("[%s] Secrets transport error: %v", i.cfg.Name, err)
 			}
 		}()
 	}
@@ -532,6 +546,7 @@ func (i *Instance) discoverTransports() {
 		"-q_mysql_addr":  "mysql",
 		"-q_dfs_sock":    "dfs",
 		"-q_email_sock":  "email",
+		"-q_secrets_sock": "secrets",
 		"-q_tracer_file": "tracer",
 		"-q_metrics_addr": "prometheus",
 	}

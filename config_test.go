@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -536,3 +537,110 @@ func TestGetters(t *testing.T) {
 	}
 }
 
+func TestSecretsRoundTrip(t *testing.T) {
+	cfg := newTestConfig()
+	pem := "line1\nline2 = \"x\""
+	cfg.AddSecret("api", "db/password", pem)
+	cfg.AddSecret("web", "token", "t")
+
+	path := filepath.Join(t.TempDir(), "test.ini")
+	if err := cfg.Save(path); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read file: %v", err)
+	}
+	parsed := &config{}
+	if err := parsed.parseINI(data); err != nil {
+		t.Fatalf("parseINI failed: %v", err)
+	}
+
+	if v, ok := parsed.GetSecret("api", "db/password"); !ok || v != pem {
+		t.Errorf("api/db/password: got %q, %v", v, ok)
+	}
+	if v, ok := parsed.GetSecret("web", "token"); !ok || v != "t" {
+		t.Errorf("web/token: got %q, %v", v, ok)
+	}
+	if _, ok := parsed.GetSecret("api", "token"); ok {
+		t.Error("api/token should not exist")
+	}
+	want := map[string][]string{"api": {"db/password"}, "web": {"token"}}
+	if got := parsed.SecretPaths(); !reflect.DeepEqual(got, want) {
+		t.Errorf("SecretPaths: got %v, want %v", got, want)
+	}
+
+	if !parsed.RemoveSecret("api", "db/password") {
+		t.Fatal("RemoveSecret returned false")
+	}
+	if parsed.RemoveSecret("api", "db/password") {
+		t.Error("second RemoveSecret returned true")
+	}
+	if err := parsed.Save(path); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	data, _ = os.ReadFile(path)
+	if strings.Contains(string(data), "db/password") {
+		t.Errorf("removed secret still saved:\n%s", data)
+	}
+	again := &config{}
+	if err := again.parseINI(data); err != nil {
+		t.Fatalf("parseINI failed: %v", err)
+	}
+	if _, ok := again.GetSecret("api", "db/password"); ok {
+		t.Error("removed secret parsed back")
+	}
+	if v, ok := again.GetSecret("web", "token"); !ok || v != "t" {
+		t.Errorf("web/token after remove: got %q, %v", v, ok)
+	}
+}
+
+func TestSecretsSortedPaths(t *testing.T) {
+	cfg := newTestConfig()
+	cfg.AddSecret("api", "z", "1")
+	cfg.AddSecret("api", "a/b", "2")
+	cfg.AddSecret("api", "m", "3")
+	want := []string{"a/b", "m", "z"}
+	if got := cfg.SecretPaths()["api"]; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestParseSecretsErrorHidesValue(t *testing.T) {
+	for _, ini := range []string{
+		"[secrets]\napi/token = \"unterminated-s3cr3t\n",
+		"[secrets]\napi/token = bare-s3cr3t\n",
+		"[secrets]\nnoslash = \"s3cr3t\"\n",
+	} {
+		err := (&config{}).parseINI([]byte(ini))
+		if err == nil {
+			t.Errorf("no error for %q", ini)
+			continue
+		}
+		if strings.Contains(err.Error(), "s3cr3t") {
+			t.Errorf("error leaks value: %v", err)
+		}
+	}
+}
+
+func TestSaveMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "test.ini")
+	if err := os.WriteFile(path, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0644); err != nil {
+		t.Fatal(err)
+	}
+	cfg := newTestConfig()
+	cfg.AddSecret("api", "token", "t")
+	if err := cfg.Save(path); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := fi.Mode().Perm(); m != 0o600 {
+		t.Errorf("mode %o, want 600", m)
+	}
+}

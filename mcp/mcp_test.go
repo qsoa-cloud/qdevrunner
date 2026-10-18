@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,6 +25,7 @@ type mockConfig struct {
 	buckets     map[string]string
 	mailboxes   map[string]bool
 	envVars     map[string]string
+	secrets     map[string]map[string]string
 	savePath    string
 }
 
@@ -35,6 +37,7 @@ func newMockConfig() *mockConfig {
 		buckets:     make(map[string]string),
 		mailboxes:   make(map[string]bool),
 		envVars:     make(map[string]string),
+		secrets:     make(map[string]map[string]string),
 	}
 }
 
@@ -67,6 +70,32 @@ func (m *mockConfig) GetMailboxes() []string {
 }
 func (m *mockConfig) AddMailbox(addr, smtp, sp, imap_, ip string) { m.mailboxes[addr] = true }
 func (m *mockConfig) RemoveMailbox(addr string)                   { delete(m.mailboxes, addr) }
+func (m *mockConfig) GetSecret(service, path string) (string, bool) {
+	v, ok := m.secrets[service][path]
+	return v, ok
+}
+func (m *mockConfig) SecretPaths() map[string][]string {
+	result := make(map[string][]string, len(m.secrets))
+	for svc, paths := range m.secrets {
+		for p := range paths {
+			result[svc] = append(result[svc], p)
+		}
+	}
+	return result
+}
+func (m *mockConfig) AddSecret(service, path, value string) {
+	if m.secrets[service] == nil {
+		m.secrets[service] = make(map[string]string)
+	}
+	m.secrets[service][path] = value
+}
+func (m *mockConfig) RemoveSecret(service, path string) bool {
+	if _, ok := m.secrets[service][path]; !ok {
+		return false
+	}
+	delete(m.secrets[service], path)
+	return true
+}
 
 func testDeps() *Deps {
 	ts := tracer.NewStore(100)
@@ -429,5 +458,114 @@ func TestSaveCalledOnConfigChange(t *testing.T) {
 
 	if cfg.savePath != deps.ConfigPath {
 		t.Errorf("expected Save called with %q, got %q", deps.ConfigPath, cfg.savePath)
+	}
+}
+
+func TestAddRemoveSecretTool(t *testing.T) {
+	deps := testDeps()
+	cfg := deps.Config.(*mockConfig)
+	deps.ConfigPath = filepath.Join(t.TempDir(), "test.ini")
+	const value = "s3cr3t-value"
+
+	result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": "api", "path": "db/password", "value": value})
+	text := getTextContent(t, result)
+	if result.IsError {
+		t.Fatalf("add_secret failed: %s", text)
+	}
+	if strings.Contains(text, value) {
+		t.Errorf("add_secret result contains the value: %s", text)
+	}
+	if text != "Secret api/db/password saved." {
+		t.Errorf("unexpected result %q", text)
+	}
+	if cfg.secrets["api"]["db/password"] != value {
+		t.Error("secret not added")
+	}
+	if cfg.savePath != deps.ConfigPath {
+		t.Error("config not saved")
+	}
+
+	result = callTool(t, makeRemoveSecret(deps), map[string]interface{}{"service": "api", "path": "db/password"})
+	if result.IsError {
+		t.Fatalf("remove_secret failed: %s", getTextContent(t, result))
+	}
+	if strings.Contains(getTextContent(t, result), value) {
+		t.Error("remove_secret result contains the value")
+	}
+	if _, ok := cfg.secrets["api"]["db/password"]; ok {
+		t.Error("secret not removed")
+	}
+
+	result = callTool(t, makeRemoveSecret(deps), map[string]interface{}{"service": "api", "path": "db/password"})
+	if !result.IsError {
+		t.Error("expected error removing a missing secret")
+	}
+}
+
+func TestAddSecretRejectsInvalidPath(t *testing.T) {
+	deps := testDeps()
+	cfg := deps.Config.(*mockConfig)
+	deps.ConfigPath = filepath.Join(t.TempDir(), "test.ini")
+	long := strings.Repeat("a", 65)
+
+	for _, path := range []string{"", "/", "a/", "/a", "a//b", ".", "..", "a/../b", "a/./b", "a/b/c/d/e", "a b", "a:b", "a\\b", long, "é"} {
+		result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": "api", "path": path, "value": "s3cr3t"})
+		if !result.IsError {
+			t.Errorf("path %q accepted", path)
+		}
+		if strings.Contains(getTextContent(t, result), "s3cr3t") {
+			t.Errorf("error for %q contains the value", path)
+		}
+	}
+	if len(cfg.secrets) != 0 {
+		t.Errorf("invalid secrets stored: %v", cfg.secrets)
+	}
+
+	for _, path := range []string{"a", "a/b/c/d", "A-z_0.9", "..a", strings.Repeat("a", 64)} {
+		result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": "api", "path": path, "value": "v"})
+		if result.IsError {
+			t.Errorf("path %q rejected: %s", path, getTextContent(t, result))
+		}
+	}
+}
+
+func TestAddSecretRejectsInvalidService(t *testing.T) {
+	deps := testDeps()
+	cfg := deps.Config.(*mockConfig)
+	deps.ConfigPath = filepath.Join(t.TempDir(), "test.ini")
+
+	for _, svc := range []string{"", "a/b", "a b", "a\tb", "a=b"} {
+		result := callTool(t, makeAddSecret(deps), map[string]interface{}{"service": svc, "path": "token", "value": "s3cr3t"})
+		if !result.IsError {
+			t.Errorf("service %q accepted", svc)
+		}
+	}
+	if len(cfg.secrets) != 0 {
+		t.Errorf("invalid secrets stored: %v", cfg.secrets)
+	}
+}
+
+func TestGetConfigHidesSecretValues(t *testing.T) {
+	deps := testDeps()
+	deps.Config.AddSecret("api", "db/password", "s3cr3t-value")
+
+	text := getTextContent(t, callTool(t, makeGetConfig(deps), nil))
+	if !strings.Contains(text, "db/password") {
+		t.Errorf("get_config lacks the secret path: %s", text)
+	}
+	if strings.Contains(text, "s3cr3t-value") {
+		t.Errorf("get_config contains the secret value: %s", text)
+	}
+
+	res, err := makeConfigResource(deps)(context.Background(), mcp.ReadResourceRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rtext := res[0].(mcp.TextResourceContents).Text
+	if !strings.Contains(rtext, "db/password") {
+		t.Errorf("config resource lacks the secret path: %s", rtext)
+	}
+	if strings.Contains(rtext, "s3cr3t-value") {
+		t.Errorf("config resource contains the secret value: %s", rtext)
 	}
 }
