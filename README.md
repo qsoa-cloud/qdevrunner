@@ -36,6 +36,7 @@ No config file required. qdevrunner starts with sensible defaults (project "defa
 - **DFS** -- Distributed file system backed by local directories.
 - **Email** -- QEmail gRPC service proxying to real SMTP/IMAP servers.
 - **MySQL** -- DSN discovery from config. Services use `qmysql` driver as in production.
+- **ClickHouse** -- Native-protocol proxy to the databases in config. Services use `qclickhouse.Open` as in production.
 - **Tracing** -- Reads OpenTracing JSON spans from service FIFOs. Stored in-memory, streamed to Web UI in real-time.
 - **Metrics** -- Scrapes Prometheus endpoints from services every 5s. Displayed in Web UI.
 - **Logs** -- Captures stdout/stderr from managed services. Terminal-like view in Web UI.
@@ -107,6 +108,10 @@ imappassword = password
 type = mysql
 dsn = root:pass@tcp(127.0.0.1:3306)/example_db
 
+[database "events"]
+type = clickhouse
+dsn = clickhouse://user:password@127.0.0.1:9000/events
+
 [envs]
 MY_VAR = my_value
 
@@ -125,7 +130,7 @@ httpport = 8080
 | `[webui]` | Web UI address and buffer sizes. |
 | `[bucket "name"]` | Maps a DFS bucket to a local directory. |
 | `[mailbox "addr"]` | Configures a mailbox with SMTP/IMAP. |
-| `[database "name"]` | Maps a database name to a DSN. Supports `type` field (default: `mysql`). |
+| `[database "name"]` | Maps a database name to a DSN. `type` is `mysql` (default) or `clickhouse`, with `dsn = clickhouse://user:password@host:port/realdb`. |
 | `[envs]` | Environment variables injected as `QSOA_*`. |
 | `[service "name"]` | Configures a service instance. |
 
@@ -139,6 +144,10 @@ httpport = 8080
 | `httpport` | TCP port for HTTP proxy to the service's Unix socket. |
 
 qdevrunner automatically builds the Go binary (`go build`) from the workdir and discovers which transports the service uses by inspecting its `-q_*` command-line flags.
+
+### ClickHouse databases
+
+A service that imports `gopkg.qsoa.cloud/service/qclickhouse` opens a configured ClickHouse database by its name with `qclickhouse.Open(ctx, "events")`, or the only one with `qclickhouse.Open(ctx, "")`. Every such service may open every configured ClickHouse database; there are no attached services as in production. qdevrunner passes `-q_clickhouse_sock` only if a ClickHouse database is configured when the service starts, so restart a running service after adding the first one. Later additions and removals apply from the service's next connection.
 
 ## Web UI
 
@@ -183,7 +192,7 @@ The MCP endpoint is `http://<webui-addr>/mcp/` (Streamable HTTP). The MCP Setup 
 - `get_service_command` -- Shell command to run a service manually
 
 **Config management** (live — changes take effect immediately, persisted to INI):
-- `add_database`, `remove_database` -- Manage MySQL database connections
+- `add_database`, `remove_database` -- Manage MySQL and ClickHouse database connections
 - `add_bucket`, `remove_bucket` -- Manage DFS buckets
 - `add_mailbox`, `remove_mailbox` -- Manage email mailboxes
 - `add_env`, `remove_env` -- Manage environment variables
@@ -203,6 +212,7 @@ qdevrunner binary
 ├── Per-Instance Transports (Unix sockets)
 │   ├── gRPC Proxy (grpc_runner.sock ↔ grpc.sock)
 │   ├── MySQL DSN Discovery (mysql.sock)
+│   ├── ClickHouse Proxy (clickhouse.sock)
 │   ├── DFS (dfs.sock)
 │   ├── Email (email.sock)
 │   ├── OpenTracing (tracer.fifo)

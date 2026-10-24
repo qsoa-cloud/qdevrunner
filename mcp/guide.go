@@ -5,8 +5,8 @@ const guideText = `# qdevrunner — Local Development Runner for qSOA Cloud
 ## What is qdevrunner?
 
 qdevrunner is a local development tool that provides the full qSOA Cloud service runtime:
-service mesh (gRPC inter-service discovery), MySQL DSN discovery, DFS (distributed file system),
-email, distributed tracing, Prometheus metrics, and auto-rebuild on code changes.
+service mesh (gRPC inter-service discovery), MySQL DSN discovery, a ClickHouse proxy, DFS (distributed
+file system), email, distributed tracing, Prometheus metrics, and auto-rebuild on code changes.
 
 One qdevrunner instance = one project. All services within the project discover and call each other
 through qdevrunner's service mesh, just like in production.
@@ -21,6 +21,8 @@ manages service lifecycles, provides the service mesh, and proxies all infrastru
   proxies gRPC calls between services, handles discovery, and injects trace context.
 - **MySQL** — services open databases by name via ` + "`" + `sql.Open("qmysql", "db_name")` + "`" + `. The runner
   resolves the name to a DSN from its config.
+- **ClickHouse** — services open databases by name via ` + "`" + `qclickhouse.Open(ctx, "db_name")` + "`" + `. The runner
+  proxies the ClickHouse native protocol to the DSN from its config.
 - **DFS (Distributed File System)** — services access file buckets via ` + "`" + `qdfs.GetFs("bucket")` + "`" + `.
   The runner serves files from local directories (dev) or the DFS cluster (production).
 - **Email** — services send/receive email via ` + "`" + `qemail.GetMailbox("addr")` + "`" + `. The runner proxies
@@ -104,6 +106,21 @@ to a DSN, then delegates to the standard MySQL driver. Connection pooling works 
 ` + "`" + `DATETIME` + "`" + ` column directly into ` + "`" + `*time.Time` + "`" + ` fails with ` + "`" + `unsupported Scan, storing
 driver.Value type []uint8 into type *time.Time` + "`" + `. Workarounds: scan into ` + "`" + `string` + "`" + ` and parse, or
 ` + "`" + `SELECT UNIX_TIMESTAMP(col)` + "`" + ` into ` + "`" + `int64` + "`" + `.
+
+### qclickhouse — ClickHouse Database (gopkg.qsoa.cloud/service/qclickhouse)
+
+` + "```" + `go
+import "gopkg.qsoa.cloud/service/qclickhouse"
+
+conn, err := qclickhouse.Open(ctx, "events")  // "events" is the database name from qdevrunner config
+` + "```" + `
+
+Returns a clickhouse-go v2 ` + "`" + `driver.Conn` + "`" + ` that traces every query. It connects through the runner without
+credentials and pings the database; ` + "`" + `qclickhouse.Open(ctx, "")` + "`" + ` opens the only configured database. Without a
+ClickHouse database it returns ` + "`" + `qclickhouse.ErrNotAttached` + "`" + `; an unknown name gets exception 81 (UNKNOWN_DATABASE).
+A context deadline cancels a query but is not sent as ` + "`" + `max_execution_time` + "`" + `: in production the limits are
+fixed, and a query that sets ` + "`" + `max_memory_usage` + "`" + `, ` + "`" + `max_execution_time` + "`" + ` or ` + "`" + `max_concurrent_queries_for_user` + "`" + ` gets
+exception 452. In production only services attached to the database open it.
 
 ### qdfs — Distributed File System (gopkg.qsoa.cloud/service/qdfs)
 
@@ -253,6 +270,10 @@ Services access databases via the qmysql driver:
   db, _ := sql.Open("qmysql", "mydb")
 
 ClickHouse: add_database(name="events", type="clickhouse", dsn="clickhouse://user:password@127.0.0.1:9000/events"); services call qclickhouse.Open(ctx, "events") through clickhouse.sock. The socket flag is decided at service start, so restart a service after its first ClickHouse database is added.
+In qdevrunner.ini:
+  [database "events"]
+  type = clickhouse
+  dsn = clickhouse://user:password@host:port/realdb
 
 ### DFS Buckets
 Use add_bucket tool with name and local directory path:
@@ -311,6 +332,10 @@ socket that the service connects to:
 - **mysql** — MySQL DSN discovery. Service calls sql.Open("qmysql", "db_name").
   Discovered when service imports gopkg.qsoa.cloud/service/qmysql.
 
+- **clickhouse** — ClickHouse native protocol proxy. Service calls qclickhouse.Open(ctx, "db_name").
+  Discovered when service imports gopkg.qsoa.cloud/service/qclickhouse. The socket exists only if a
+  ClickHouse database is configured when the service starts: restart it after adding the first one.
+
 - **dfs** — Distributed file system. Service calls qdfs.GetFs("bucket").
   Discovered when service imports gopkg.qsoa.cloud/service/qdfs.
 
@@ -324,7 +349,7 @@ socket that the service connects to:
 ### Socket Layout
 
 Per-service sockets are created at:
-  /tmp/qdevrunner/<project>/<service>/misc/  — runner-side sockets (grpc_runner.sock, mysql.sock, dfs.sock, email.sock, tracer.fifo)
+  /tmp/qdevrunner/<project>/<service>/misc/  — runner-side sockets (grpc_runner.sock, mysql.sock, clickhouse.sock, dfs.sock, email.sock, tracer.fifo)
   /tmp/qdevrunner/<project>/<service>/tmp/   — service-side sockets (grpc.sock, http.sock, prometheus.sock)
 
 ## Observability
@@ -386,7 +411,7 @@ All config changes are saved to the INI file automatically:
 - add_service — add and optionally start a service
 - remove_service — stop and remove a service
 - update_service — update service configuration
-- add_database / remove_database — manage MySQL databases
+- add_database / remove_database — manage MySQL and ClickHouse databases
 - add_bucket / remove_bucket — manage DFS buckets
 - add_mailbox / remove_mailbox — manage email mailboxes
 - add_env / remove_env — manage environment variables
