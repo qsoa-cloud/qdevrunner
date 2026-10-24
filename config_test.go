@@ -1,9 +1,11 @@
 package main
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -642,5 +644,51 @@ func TestSaveMode(t *testing.T) {
 	}
 	if m := fi.Mode().Perm(); m != 0o600 {
 		t.Errorf("mode %o, want 600", m)
+	}
+}
+
+func TestParseClickHouseDatabase(t *testing.T) {
+	ini := `
+[database "events"]
+type = clickhouse
+dsn = clickhouse://owner:pw@127.0.0.1:9000/real_events
+
+[database "main"]
+type = mysql
+dsn = root:pass@tcp(localhost)/main
+
+[database "legacy"]
+dsn = root:@tcp(localhost)/legacy
+`
+	cfg := newTestConfig()
+	if err := cfg.parseINI([]byte(ini)); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"events": "clickhouse://owner:pw@127.0.0.1:9000/real_events"}
+	if got := cfg.GetClickHouseDsns(); !reflect.DeepEqual(got, want) {
+		t.Errorf("GetClickHouseDsns: got %v", slices.Sorted(maps.Keys(got)))
+	}
+	wantMySQL := map[string]string{"main": "root:pass@tcp(localhost)/main", "legacy": "root:@tcp(localhost)/legacy"}
+	if got := cfg.GetMySQLDsns(); !reflect.DeepEqual(got, wantMySQL) {
+		t.Errorf("GetMySQLDsns: got %v", slices.Sorted(maps.Keys(got)))
+	}
+	if got := cfg.GetDatabases()["events"].Type; got != "clickhouse" {
+		t.Errorf("events type: got %q", got)
+	}
+
+	path := filepath.Join(t.TempDir(), "test.ini")
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed := newTestConfig()
+	if err := parsed.parseINI(data); err != nil {
+		t.Fatal(err)
+	}
+	if got := parsed.GetClickHouseDsns(); !reflect.DeepEqual(got, want) {
+		t.Errorf("after round trip: got %v", slices.Sorted(maps.Keys(got)))
 	}
 }

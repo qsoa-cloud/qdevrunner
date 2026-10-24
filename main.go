@@ -101,6 +101,8 @@ func main() {
 			GetSecret:  cfg.GetSecret,
 			Databases:  databases,
 			BasePath:   basePath,
+
+			GetClickHouseDsns: cfg.GetClickHouseDsns,
 		}
 
 		inst := instance.New(instCfg, reg, tracerStore, metricsStore, logStore, dfsServer, emailServer)

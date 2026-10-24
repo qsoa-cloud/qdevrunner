@@ -1,8 +1,13 @@
 package instance
 
 import (
+	"context"
+	"net"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func testConfig() Config {
@@ -199,5 +204,90 @@ func TestGetHttpToServiceAddr(t *testing.T) {
 	addr := inst.GetHttpToServiceAddr()
 	if !strings.Contains(addr, "http.sock") {
 		t.Errorf("expected http.sock in addr, got %s", addr)
+	}
+}
+
+func TestDiscoverClickhouseTransport(t *testing.T) {
+	bin := filepath.Join(t.TempDir(), "qservice")
+	script := "#!/bin/sh\necho '  -q_clickhouse_sock string' >&2\necho '  -q_mysql_addr string' >&2\nexit 2\n"
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	inst := New(testConfig(), nil, nil, nil, nil, nil, nil)
+	inst.binPath = bin
+	inst.discoverTransports()
+	if !inst.hasTransport("clickhouse") {
+		t.Errorf("clickhouse not discovered: %v", inst.transports)
+	}
+}
+
+func TestClickhouseFlagAndSocket(t *testing.T) {
+	configured := map[string]string{"events": "clickhouse://owner:pw@127.0.0.1:9000/real_events"}
+	for _, tc := range []struct {
+		name       string
+		transports []string
+		dsns       map[string]string
+		want       bool
+	}{
+		{"declared and configured", []string{"clickhouse"}, configured, true},
+		{"not declared", nil, configured, false},
+		{"not configured", []string{"clickhouse"}, map[string]string{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			base, err := os.MkdirTemp("", "qdr")
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.RemoveAll(base) })
+			cfg := Config{
+				Name: "svc", Project: "p", Env: "dev", BasePath: base,
+				GetClickHouseDsns: func() map[string]string { return tc.dsns },
+			}
+			inst := New(cfg, nil, nil, nil, nil, nil, nil)
+			inst.transports = tc.transports
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if err := inst.StartTransports(ctx); err != nil {
+				t.Fatal(err)
+			}
+
+			sock := filepath.Join(base, "p", "svc", "misc", "clickhouse.sock")
+			var flags []string
+			for _, arg := range inst.buildArgs() {
+				if strings.HasPrefix(arg, "-q_clickhouse_sock") {
+					flags = append(flags, arg)
+				}
+			}
+			if tc.want {
+				if want := "-q_clickhouse_sock=unix://" + sock; len(flags) != 1 || flags[0] != want {
+					t.Errorf("flags %v, want [%s]", flags, want)
+				}
+			} else if len(flags) != 0 {
+				t.Errorf("unexpected flags %v", flags)
+			}
+
+			wait := 300 * time.Millisecond
+			if tc.want {
+				wait = 2 * time.Second
+			}
+			deadline := time.Now().Add(wait)
+			for {
+				c, err := net.Dial("unix", sock)
+				if err == nil {
+					c.Close()
+					if !tc.want {
+						t.Fatal("socket served")
+					}
+					return
+				}
+				if time.Now().After(deadline) {
+					if tc.want {
+						t.Fatalf("socket not served: %v", err)
+					}
+					return
+				}
+				time.Sleep(20 * time.Millisecond)
+			}
+		})
 	}
 }

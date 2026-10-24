@@ -18,6 +18,7 @@ import (
 	"gopkg.qsoa.cloud/qdevrunner/metricsstore"
 	"gopkg.qsoa.cloud/qdevrunner/registry"
 	"gopkg.qsoa.cloud/qdevrunner/tracer"
+	transportClickhouse "gopkg.qsoa.cloud/qdevrunner/transport/clickhouse"
 	transportDfs "gopkg.qsoa.cloud/qdevrunner/transport/dfs"
 	transportEmail "gopkg.qsoa.cloud/qdevrunner/transport/email"
 	"gopkg.qsoa.cloud/qdevrunner/transport/grpcproxy"
@@ -50,6 +51,8 @@ type Config struct {
 	GetSecret  func(service, path string) (string, bool)
 	Databases  map[string]string
 	BasePath  string // Base temp directory for sockets
+
+	GetClickHouseDsns func() map[string]string
 }
 
 type Instance struct {
@@ -72,6 +75,7 @@ type Instance struct {
 	binPath       string   // built binary path
 	transports    []string // auto-discovered transports
 	stopping      bool     // true when Stop() was called
+	clickhouse    bool
 
 	// Transports with live-update support.
 	mysqlTransport *mysql.MySql
@@ -219,6 +223,9 @@ func (i *Instance) buildArgs() []string {
 	if i.hasTransport("mysql") {
 		args = append(args, fmt.Sprintf("-q_mysql_addr=unix://%s", filepath.Join(i.miscDir, "mysql.sock")))
 	}
+	if i.clickhouse {
+		args = append(args, fmt.Sprintf("-q_clickhouse_sock=unix://%s", filepath.Join(i.miscDir, "clickhouse.sock")))
+	}
 	if i.hasTransport("http") {
 		args = append(args, fmt.Sprintf("-q_http_addr=unix://%s", filepath.Join(i.tmpDir, "http.sock")))
 	}
@@ -260,6 +267,16 @@ func (i *Instance) StartTransports(ctx context.Context) error {
 		go func() {
 			if err := i.mysqlTransport.Serve(ctx); err != nil {
 				log.Printf("[%s] MySQL transport error: %v", i.cfg.Name, err)
+			}
+		}()
+	}
+
+	i.clickhouse = i.hasTransport("clickhouse") && i.cfg.GetClickHouseDsns != nil && len(i.cfg.GetClickHouseDsns()) > 0
+	if i.clickhouse {
+		ch := transportClickhouse.NewFromRunner(i.cfg.Name, filepath.Join(i.miscDir, "clickhouse.sock"), i.cfg.GetClickHouseDsns, i.tracerStore)
+		go func() {
+			if err := ch.Serve(ctx); err != nil {
+				log.Printf("[%s] ClickHouse transport error: %v", i.cfg.Name, err)
 			}
 		}()
 	}
@@ -544,6 +561,7 @@ func (i *Instance) discoverTransports() {
 		"-q_grpc_addr":   "grpc",
 		"-q_http_addr":   "http",
 		"-q_mysql_addr":  "mysql",
+		"-q_clickhouse_sock": "clickhouse",
 		"-q_dfs_sock":    "dfs",
 		"-q_email_sock":  "email",
 		"-q_secrets_sock": "secrets",

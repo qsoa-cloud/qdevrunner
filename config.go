@@ -475,6 +475,18 @@ func (c *config) GetMySQLDsns() map[string]string {
 	return result
 }
 
+func (c *config) GetClickHouseDsns() map[string]string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	result := make(map[string]string)
+	for name, db := range c.Database {
+		if db.Type == "clickhouse" {
+			result[name] = db.Dsn
+		}
+	}
+	return result
+}
+
 func (c *config) GetBuckets() map[string]string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -296,6 +297,53 @@ func TestAddRemoveDatabaseTool(t *testing.T) {
 
 	if _, ok := cfg.databases["mydb"]; ok {
 		t.Error("database not removed")
+	}
+}
+
+type recordingDatabaseManager map[string]string
+
+func (m recordingDatabaseManager) AddDsn(name, dsn string) { m[name] = dsn }
+func (m recordingDatabaseManager) RemoveDsn(name string)   { delete(m, name) }
+
+func TestAddDatabaseTypeEnum(t *testing.T) {
+	tool := NewMCPServer(testDeps()).GetTool("add_database")
+	enum, _ := tool.Tool.InputSchema.Properties["type"].(map[string]any)["enum"].([]string)
+	if !slices.Equal(enum, []string{"mysql", "clickhouse"}) {
+		t.Errorf("enum %v", enum)
+	}
+}
+
+func TestAddDatabaseClickHouse(t *testing.T) {
+	deps := testDeps()
+	cfg := deps.Config.(*mockConfig)
+	mgr := recordingDatabaseManager{}
+	deps.DatabaseManager = mgr
+	add := makeAddDatabase(deps)
+
+	dsn := "clickhouse://owner:pw-ch@127.0.0.1:9000/real_events"
+	res := callTool(t, add, map[string]interface{}{"name": "events", "type": "clickhouse", "dsn": dsn})
+	if res.IsError {
+		t.Fatalf("error: %s", getTextContent(t, res))
+	}
+	if cfg.databases["events"] != "clickhouse:"+dsn {
+		t.Error("clickhouse database not stored")
+	}
+	if _, ok := mgr["events"]; ok {
+		t.Error("clickhouse DSN sent to the MySQL transport")
+	}
+	if text := getTextContent(t, res); strings.Contains(text, "pw-ch") || strings.Contains(text, "clickhouse://") {
+		t.Error("output reveals the DSN")
+	}
+
+	res = callTool(t, add, map[string]interface{}{"name": "main", "dsn": "root:pw-my@tcp(localhost)/main"})
+	if cfg.databases["main"] != "mysql:root:pw-my@tcp(localhost)/main" {
+		t.Errorf("config %q", cfg.databases["main"])
+	}
+	if mgr["main"] != "root:pw-my@tcp(localhost)/main" {
+		t.Errorf("mysql transport %q", mgr["main"])
+	}
+	if text, want := getTextContent(t, res), `Database "main" added (type: mysql, DSN: root:pw-my@tcp(localhost)/main)`; text != want {
+		t.Errorf("output %q, want %q", text, want)
 	}
 }
 

@@ -13,10 +13,10 @@ import (
 func registerConfigTools(s *server.MCPServer, deps *Deps) {
 	// Database management.
 	s.AddTool(mcp.NewTool("add_database",
-		mcp.WithDescription("Add a database to the project configuration. Currently only MySQL is supported. Services access MySQL via sql.Open(\"qmysql\", \"name\")."),
-		mcp.WithString("name", mcp.Required(), mcp.Description("Database name (used by services in sql.Open)")),
-		mcp.WithString("type", mcp.Description("Database type: mysql (default). Future: clickhouse, postgres."), mcp.Enum("mysql")),
-		mcp.WithString("dsn", mcp.Required(), mcp.Description("Connection DSN (e.g. root:pass@tcp(127.0.0.1:3306)/mydb for MySQL)")),
+		mcp.WithDescription("Add a database to the project configuration. Services access MySQL via sql.Open(\"qmysql\", \"name\") and ClickHouse via qclickhouse.Open(ctx, \"name\")."),
+		mcp.WithString("name", mcp.Required(), mcp.Description("Database name (used by services in sql.Open or qclickhouse.Open)")),
+		mcp.WithString("type", mcp.Description("Database type: mysql (default) or clickhouse."), mcp.Enum("mysql", "clickhouse")),
+		mcp.WithString("dsn", mcp.Required(), mcp.Description("Connection DSN (e.g. root:pass@tcp(127.0.0.1:3306)/mydb for MySQL, clickhouse://user:password@127.0.0.1:9000/mydb for ClickHouse)")),
 	), makeAddDatabase(deps))
 
 	s.AddTool(mcp.NewTool("remove_database",
@@ -116,6 +116,9 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 		}
 		if err := saveConfig(deps); err != nil {
 			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if dbType == "clickhouse" {
+			return mcp.NewToolResultText(fmt.Sprintf("Database %q added (type: %s). Restart a running service if it had no ClickHouse database before.", name, dbType)), nil
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("Database %q added (type: %s, DSN: %s)", name, dbType, dsn)), nil
 	}
