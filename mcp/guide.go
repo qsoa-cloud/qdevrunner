@@ -252,7 +252,7 @@ Use add_database tool with name and DSN:
 Services access databases via the qmysql driver:
   db, _ := sql.Open("qmysql", "mydb")
 
-ClickHouse: add_database(name="events", type="clickhouse", dsn="clickhouse://user:password@127.0.0.1:9000/events"); services call qclickhouse.Open(ctx, "events") through clickhouse.sock, passed only while a clickhouse database is configured.
+ClickHouse: add_database(name="events", type="clickhouse", dsn="clickhouse://user:password@127.0.0.1:9000/events"); services call qclickhouse.Open(ctx, "events") through clickhouse.sock. The socket flag is decided at service start, so restart a service after its first ClickHouse database is added.
 
 ### DFS Buckets
 Use add_bucket tool with name and local directory path:

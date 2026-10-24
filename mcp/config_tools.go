@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -110,6 +111,9 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 		if dbType == "" {
 			dbType = "mysql"
 		}
+		if dbType == "clickhouse" && !validClickHouseDsn(dsn) {
+			return mcp.NewToolResultError("invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"), nil
+		}
 		deps.Config.AddDatabase(name, dbType, dsn)
 		if deps.DatabaseManager != nil && dbType == "mysql" {
 			deps.DatabaseManager.AddDsn(name, dsn)
@@ -122,6 +126,11 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 		}
 		return mcp.NewToolResultText(fmt.Sprintf("Database %q added (type: %s, DSN: %s)", name, dbType, dsn)), nil
 	}
+}
+
+func validClickHouseDsn(dsn string) bool {
+	u, err := url.Parse(dsn)
+	return err == nil && u.Scheme == "clickhouse" && u.Hostname() != "" && u.Port() != "" && u.User.Username() != ""
 }
 
 func makeRemoveDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {

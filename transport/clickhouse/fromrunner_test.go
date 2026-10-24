@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"io"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -83,6 +84,34 @@ func TestObserveSpan(t *testing.T) {
 	}
 
 	NewFromRunner("svc", "", nil, nil).observe("events", "ok", time.Millisecond)
+}
+
+func TestObserveHidesUnknownNames(t *testing.T) {
+	store := tracer.NewStore(10)
+	tr := NewFromRunner("svc", "", func() map[string]string { return map[string]string{"events": dsnEvents} }, store)
+	long := strings.Repeat("x", 4096)
+	quoted := `ev"ents`
+	tr.observe(long, "unknown_db", time.Millisecond)
+	tr.observe(quoted, "unknown_db", time.Millisecond)
+	tr.observe("", "handshake", time.Millisecond)
+
+	spans := store.RecentSpans(10)
+	if len(spans) != 3 {
+		t.Fatalf("got %d spans", len(spans))
+	}
+	ops := map[string]int{}
+	for _, rec := range spans {
+		ops[rec.Span.Operation+"|"+rec.Span.Tags["db"].(string)]++
+		data, _ := json.Marshal(rec)
+		if strings.Contains(string(data), long[:64]) || strings.Contains(string(data), `ev\"ents`) {
+			t.Error("span contains the raw database name")
+		}
+	}
+	if want := map[string]int{"clickhouse connect <invalid>|<invalid>": 2, "clickhouse connect |": 1}; !maps.Equal(ops, want) {
+		for k, n := range ops {
+			t.Errorf("span %.60q x%d", k, n)
+		}
+	}
 }
 
 func appendString(b []byte, s string) []byte {
@@ -201,7 +230,7 @@ func TestServe(t *testing.T) {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if results["events"] != "ok" || results["nope"] != "unknown_db" {
+	if results["events"] != "ok" || results["<invalid>"] != "unknown_db" {
 		t.Errorf("span results %v", results)
 	}
 }

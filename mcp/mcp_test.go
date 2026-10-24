@@ -347,6 +347,34 @@ func TestAddDatabaseClickHouse(t *testing.T) {
 	}
 }
 
+func TestAddDatabaseRejectsBadClickHouseDsn(t *testing.T) {
+	for name, dsn := range map[string]string{
+		"mysql style":  "owner:pw-bad@tcp(127.0.0.1:3306)/events",
+		"no host":      "clickhouse://owner:pw-bad@:9000/events",
+		"no port":      "clickhouse://owner:pw-bad@127.0.0.1/events",
+		"no user":      "clickhouse://:pw-bad@127.0.0.1:9000/events",
+		"wrong scheme": "http://owner:pw-bad@127.0.0.1:9000/events",
+		"unparsable":   "clickhouse://owner:pw-bad@127.0.0.1:9000/%zz",
+	} {
+		t.Run(name, func(t *testing.T) {
+			deps := testDeps()
+			cfg := deps.Config.(*mockConfig)
+			mgr := recordingDatabaseManager{}
+			deps.DatabaseManager = mgr
+			res := callTool(t, makeAddDatabase(deps), map[string]interface{}{"name": "events", "type": "clickhouse", "dsn": dsn})
+			if !res.IsError {
+				t.Error("accepted")
+			}
+			if len(cfg.databases) != 0 || len(mgr) != 0 || cfg.savePath != "" {
+				t.Error("stored")
+			}
+			if text := getTextContent(t, res); strings.Contains(text, "pw-bad") || strings.Contains(text, "127.0.0.1") {
+				t.Error("error reveals the DSN")
+			}
+		})
+	}
+}
+
 func TestAddRemoveBucketTool(t *testing.T) {
 	deps := testDeps()
 	cfg := deps.Config.(*mockConfig)

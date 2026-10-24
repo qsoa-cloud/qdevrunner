@@ -12,6 +12,8 @@ import (
 	"gopkg.qsoa.cloud/qdevrunner/transport"
 )
 
+const invalidDb = "<invalid>"
+
 // FromRunner serves configured ClickHouse databases to one service by config name.
 type FromRunner struct {
 	service string
@@ -29,8 +31,8 @@ func (t *FromRunner) Serve(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer l.Close()
 	if err := os.Chmod(t.addr, 0o600); err != nil {
-		l.Close()
 		return err
 	}
 	return chproxy.Serve(ctx, l, t.lookup, t.observe)
@@ -52,6 +54,9 @@ func (t *FromRunner) lookup(_ context.Context, db string) (string, error) {
 func (t *FromRunner) observe(db, result string, d time.Duration) {
 	if t.store == nil {
 		return
+	}
+	if _, ok := t.dsns()[db]; db != "" && !ok {
+		db = invalidDb
 	}
 	now := time.Now()
 	t.store.Add(tracer.SpanRecord{
