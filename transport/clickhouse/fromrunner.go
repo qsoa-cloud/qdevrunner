@@ -55,8 +55,10 @@ func (t *FromRunner) observe(db, result string, d time.Duration) {
 	if t.store == nil {
 		return
 	}
-	if _, ok := t.dsns()[db]; db != "" && !ok {
-		db = invalidDb
+	if db != "" {
+		if _, ok := t.dsns()[db]; !ok {
+			db = invalidDb
+		}
 	}
 	now := time.Now()
 	t.store.Add(tracer.SpanRecord{

@@ -242,6 +242,10 @@ func (s *Server) handleConfigManagement(w http.ResponseWriter, r *http.Request) 
 			if dbType == "" {
 				dbType = "mysql"
 			}
+			if dbType == "clickhouse" && !mcppkg.ValidClickHouseDsn(dsn) {
+				s.writeError(w, http.StatusBadRequest, mcppkg.InvalidClickHouseDsn)
+				return
+			}
 			s.mcpDeps.Config.AddDatabase(name, dbType, dsn)
 			if s.mcpDeps.DatabaseManager != nil && dbType == "mysql" {
 				s.mcpDeps.DatabaseManager.AddDsn(name, dsn)

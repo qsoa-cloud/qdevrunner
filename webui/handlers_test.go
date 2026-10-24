@@ -214,6 +214,33 @@ func TestHandleConfigManagementAddDatabase(t *testing.T) {
 	}
 }
 
+func TestHandleConfigManagementAddClickHouseDatabase(t *testing.T) {
+	for _, tc := range []struct {
+		dsn  string
+		code int
+	}{
+		{"owner:pw-bad@tcp(127.0.0.1:3306)/events", http.StatusBadRequest},
+		{"clickhouse://owner:pw-ok@127.0.0.1:9000/events", http.StatusOK},
+	} {
+		s := testServer()
+		cfg := s.mcpDeps.Config.(*mockConfigAccessor)
+		body := `{"name":"events","type":"clickhouse","dsn":"` + tc.dsn + `"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/config/databases/add", strings.NewReader(body))
+		w := httptest.NewRecorder()
+		s.handleConfigManagement(w, req)
+
+		if w.Code != tc.code {
+			t.Errorf("code %d, want %d", w.Code, tc.code)
+		}
+		if stored := cfg.databases["events"] == tc.dsn; stored != (tc.code == http.StatusOK) || cfg.saved != stored {
+			t.Errorf("stored %v, saved %v", stored, cfg.saved)
+		}
+		if strings.Contains(w.Body.String(), "pw-") || strings.Contains(w.Body.String(), "127.0.0.1") {
+			t.Error("response reveals the DSN")
+		}
+	}
+}
+
 func TestHandleConfigManagementRemoveDatabase(t *testing.T) {
 	s := testServer()
 	cfg := s.mcpDeps.Config.(*mockConfigAccessor)

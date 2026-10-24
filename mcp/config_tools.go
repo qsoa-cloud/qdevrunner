@@ -111,8 +111,8 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 		if dbType == "" {
 			dbType = "mysql"
 		}
-		if dbType == "clickhouse" && !validClickHouseDsn(dsn) {
-			return mcp.NewToolResultError("invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"), nil
+		if dbType == "clickhouse" && !ValidClickHouseDsn(dsn) {
+			return mcp.NewToolResultError(InvalidClickHouseDsn), nil
 		}
 		deps.Config.AddDatabase(name, dbType, dsn)
 		if deps.DatabaseManager != nil && dbType == "mysql" {
@@ -128,7 +128,10 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 	}
 }
 
-func validClickHouseDsn(dsn string) bool {
+const InvalidClickHouseDsn = "invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"
+
+// ValidClickHouseDsn reports whether dsn is clickhouse://user[:password]@host:port[/database].
+func ValidClickHouseDsn(dsn string) bool {
 	u, err := url.Parse(dsn)
 	return err == nil && u.Scheme == "clickhouse" && u.Hostname() != "" && u.Port() != "" && u.User.Username() != ""
 }

@@ -88,12 +88,16 @@ func TestObserveSpan(t *testing.T) {
 
 func TestObserveHidesUnknownNames(t *testing.T) {
 	store := tracer.NewStore(10)
-	tr := NewFromRunner("svc", "", func() map[string]string { return map[string]string{"events": dsnEvents} }, store)
+	reads := 0
+	tr := NewFromRunner("svc", "", func() map[string]string { reads++; return map[string]string{"events": dsnEvents} }, store)
 	long := strings.Repeat("x", 4096)
 	quoted := `ev"ents`
 	tr.observe(long, "unknown_db", time.Millisecond)
 	tr.observe(quoted, "unknown_db", time.Millisecond)
 	tr.observe("", "handshake", time.Millisecond)
+	if reads != 2 {
+		t.Errorf("config read %d times, want 2", reads)
+	}
 
 	spans := store.RecentSpans(10)
 	if len(spans) != 3 {

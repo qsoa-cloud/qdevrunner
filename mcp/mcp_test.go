@@ -350,6 +350,7 @@ func TestAddDatabaseClickHouse(t *testing.T) {
 func TestAddDatabaseRejectsBadClickHouseDsn(t *testing.T) {
 	for name, dsn := range map[string]string{
 		"mysql style":  "owner:pw-bad@tcp(127.0.0.1:3306)/events",
+		"no at":        "clickhouse://127.0.0.1:9000/events?password=pw-bad",
 		"no host":      "clickhouse://owner:pw-bad@:9000/events",
 		"no port":      "clickhouse://owner:pw-bad@127.0.0.1/events",
 		"no user":      "clickhouse://:pw-bad@127.0.0.1:9000/events",
