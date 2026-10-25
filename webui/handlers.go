@@ -13,13 +13,11 @@ import (
 
 func (s *Server) writeJSON(w http.ResponseWriter, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	json.NewEncoder(w).Encode(v)
 }
 
 func (s *Server) writeError(w http.ResponseWriter, code int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
@@ -37,11 +35,6 @@ type serviceInfo struct {
 }
 
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return
-	}
-
 	type configResp struct {
 		ProjectName string                          `json:"project_name"`
 		ProjectEnv  string                          `json:"project_env"`
@@ -71,11 +64,6 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return
-	}
-
 	names := make([]string, 0, len(s.instances))
 	for name := range s.instances {
 		names = append(names, name)
@@ -117,12 +105,6 @@ func (s *Server) handleServices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleServiceAction(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		return
-	}
-
 	// /api/services/{name}/{action}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/services/"), "/")
 	if len(parts) < 1 {
@@ -201,12 +183,6 @@ func (s *Server) handleServiceAction(w http.ResponseWriter, r *http.Request) {
 // Config management endpoints.
 
 func (s *Server) handleConfigManagement(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		return
-	}
 	if r.Method != http.MethodPost {
 		s.writeError(w, http.StatusMethodNotAllowed, "POST required")
 		return
@@ -375,11 +351,6 @@ func (s *Server) handleConfigManagement(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleTraces(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return
-	}
-
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	if limit <= 0 {
@@ -391,11 +362,6 @@ func (s *Server) handleTraces(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleTrace(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodOptions {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		return
-	}
-
 	// /api/traces/{traceID}
 	idStr := strings.TrimPrefix(r.URL.Path, "/api/traces/")
 	traceID, err := strconv.ParseUint(idStr, 10, 64)

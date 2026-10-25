@@ -58,6 +58,12 @@ func NewServer(addr string, instances map[string]*instance.Instance,
 func (s *Server) Run() error {
 	s.hub.Run()
 
+	log.Printf("Web UI listening on http://%s", s.addr)
+	log.Printf("MCP server at http://%s/mcp/", s.addr)
+	return http.ListenAndServe(s.addr, s.handler())
+}
+
+func (s *Server) handler() http.Handler {
 	mux := http.NewServeMux()
 
 	// MCP server at /mcp.
@@ -92,9 +98,7 @@ func (s *Server) Run() error {
 		staticHandler.ServeHTTP(w, r)
 	})
 
-	log.Printf("Web UI listening on http://%s", s.addr)
-	log.Printf("MCP server at http://%s/mcp/", s.addr)
-	return http.ListenAndServe(s.addr, mux)
+	return localOnly(s.addr, mux)
 }
 
 // GetHub returns the WebSocket hub for external event broadcasting.

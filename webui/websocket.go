@@ -14,7 +14,7 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: sameOrigin,
 }
 
 // WSMessage is the envelope for all WebSocket messages.
