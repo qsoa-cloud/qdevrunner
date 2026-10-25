@@ -34,7 +34,7 @@
         <!-- Databases -->
         <MDBTabPane tabId="databases">
           <div class="d-flex justify-content-end mb-3">
-            <MDBBtn color="primary" size="sm" @click="form.type = 'mysql'; showAddDb = true">Add Database</MDBBtn>
+            <MDBBtn color="primary" size="sm" @click="form.type = 'mysql'; dbError = ''; showAddDb = true">Add Database</MDBBtn>
           </div>
           <MDBTable v-if="Object.keys(config.databases).length > 0" striped hover small>
             <thead><tr><th>Name</th><th>Type</th><th>DSN</th><th width="100"></th></tr></thead>
@@ -94,6 +94,7 @@
       <MDBModalTitle>Add Database</MDBModalTitle>
     </MDBModalHeader>
     <MDBModalBody>
+      <div v-if="dbError" class="alert alert-danger" role="alert">{{ dbError }}</div>
       <MDBInput v-model="form.name" label="Name" class="mb-4" />
       <select v-model="form.type" class="form-select mb-4" aria-label="Type">
         <option value="mysql">MySQL</option>
@@ -104,7 +105,7 @@
     </MDBModalBody>
     <MDBModalFooter>
       <MDBBtn color="secondary" @click="showAddDb = false">Cancel</MDBBtn>
-      <MDBBtn color="primary" @click="addResource('databases', {name: form.name, type: form.type, dsn: form.dsn}); showAddDb = false">Add</MDBBtn>
+      <MDBBtn color="primary" @click="addDatabase">Add</MDBBtn>
     </MDBModalFooter>
   </MDBModal>
 
@@ -178,6 +179,7 @@ const showAddDb = ref(false)
 const showAddBucket = ref(false)
 const showAddMailbox = ref(false)
 const showAddEnv = ref(false)
+const dbError = ref('')
 const form = reactive<Record<string, string>>({})
 
 const tabs = computed(() => {
@@ -195,14 +197,24 @@ async function fetchConfig() {
   config.value = await resp.json()
 }
 
-async function addResource(resource: string, data: Record<string, string>) {
-  await fetch(`/api/config/${resource}/add`, {
+async function addResource(resource: string, data: Record<string, string>): Promise<string> {
+  const resp = await fetch(`/api/config/${resource}/add`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
+  if (!resp.ok) {
+    const body = await resp.json().catch(() => ({}))
+    return typeof body.error === 'string' ? body.error : `Request failed: ${resp.status}`
+  }
   Object.keys(form).forEach(k => delete form[k])
   await fetchConfig()
+  return ''
+}
+
+async function addDatabase() {
+  dbError.value = await addResource('databases', {name: form.name, type: form.type, dsn: form.dsn})
+  if (!dbError.value) showAddDb.value = false
 }
 
 async function removeResource(resource: string, data: Record<string, string>) {

@@ -225,8 +225,8 @@ func TestHandleConfigManagementAddClickHouseDatabase(t *testing.T) {
 		{"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events?secure=true", mcppkg.InvalidClickHouseDsn},
 		{"ClickHouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", mcppkg.InvalidDatabaseType},
 		{"postgres", "postgres://owner:pw-bad@127.0.0.1:5432/events", mcppkg.InvalidDatabaseType},
-		{"mysql", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", clickHouseDsnForMysql},
-		{"", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", clickHouseDsnForMysql},
+		{"mysql", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", mcppkg.ClickHouseDsnForMysql},
+		{"", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", mcppkg.ClickHouseDsnForMysql},
 		{"mysql", "owner:pw-ok@tcp(127.0.0.1:3306)/events", ""},
 	} {
 		s := testServer()

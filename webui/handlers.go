@@ -200,8 +200,6 @@ func (s *Server) handleServiceAction(w http.ResponseWriter, r *http.Request) {
 
 // Config management endpoints.
 
-const clickHouseDsnForMysql = "a clickhouse:// DSN needs type clickhouse"
-
 func (s *Server) handleConfigManagement(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodOptions {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -250,7 +248,7 @@ func (s *Server) handleConfigManagement(w http.ResponseWriter, r *http.Request) 
 				return
 			}
 			if dbType == "mysql" && strings.HasPrefix(dsn, "clickhouse://") {
-				s.writeError(w, http.StatusBadRequest, clickHouseDsnForMysql)
+				s.writeError(w, http.StatusBadRequest, mcppkg.ClickHouseDsnForMysql)
 				return
 			}
 			s.mcpDeps.Config.AddDatabase(name, dbType, dsn)

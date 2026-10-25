@@ -115,6 +115,9 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 		if dbType == "clickhouse" && !ValidClickHouseDsn(dsn) {
 			return mcp.NewToolResultError(InvalidClickHouseDsn), nil
 		}
+		if dbType == "mysql" && strings.HasPrefix(dsn, "clickhouse://") {
+			return mcp.NewToolResultError(ClickHouseDsnForMysql), nil
+		}
 		deps.Config.AddDatabase(name, dbType, dsn)
 		if deps.DatabaseManager != nil && dbType == "mysql" {
 			deps.DatabaseManager.AddDsn(name, dsn)
@@ -130,8 +133,9 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 }
 
 const (
-	InvalidClickHouseDsn = "invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"
-	InvalidDatabaseType  = "invalid database type: want mysql or clickhouse"
+	InvalidClickHouseDsn  = "invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"
+	InvalidDatabaseType   = "invalid database type: want mysql or clickhouse"
+	ClickHouseDsnForMysql = "a clickhouse:// DSN needs type clickhouse"
 )
 
 // DatabaseType returns t, or mysql when t is empty, and whether it is a supported type.

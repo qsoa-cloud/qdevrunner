@@ -366,6 +366,8 @@ func TestAddDatabaseRejectsBadClickHouseDsn(t *testing.T) {
 		"query":          {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events?secure=true"},
 		"type case":      {"ClickHouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events"},
 		"unknown type":   {"postgres", "postgres://owner:pw-bad@127.0.0.1:5432/events"},
+		"as mysql":       {"mysql", "clickhouse://owner:pw-bad@127.0.0.1:9000/events"},
+		"as default":     {"", "clickhouse://owner:pw-bad@127.0.0.1:9000/events"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			deps := testDeps()
@@ -376,9 +378,12 @@ func TestAddDatabaseRejectsBadClickHouseDsn(t *testing.T) {
 			if !res.IsError {
 				t.Error("accepted")
 			}
-			want := InvalidClickHouseDsn
-			if tc.typ != "clickhouse" {
-				want = InvalidDatabaseType
+			want := InvalidDatabaseType
+			switch tc.typ {
+			case "clickhouse":
+				want = InvalidClickHouseDsn
+			case "mysql", "":
+				want = ClickHouseDsnForMysql
 			}
 			if text := getTextContent(t, res); text != want {
 				t.Errorf("error %q, want %q", text, want)
