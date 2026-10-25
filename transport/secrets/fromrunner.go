@@ -2,7 +2,6 @@ package secrets
 
 import (
 	"context"
-	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -29,9 +28,6 @@ func (t *FromRunner) Serve(ctx context.Context) error {
 		return err
 	}
 	defer l.Close()
-	if err := os.Chmod(t.addr, 0o600); err != nil {
-		return err
-	}
 
 	s := grpc.NewServer()
 	secretspb.RegisterQSecretsServer(s, t)

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -84,7 +85,10 @@ func main() {
 	}
 
 	// Base path for per-instance temp dirs.
-	basePath := filepath.Join(os.TempDir(), "qdevrunner")
+	basePath, err := runtimeDir()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Create instances for each configured service.
 	instances := make(map[string]*instance.Instance, len(cfg.Service))
@@ -214,4 +218,12 @@ func (b *databaseBroadcaster) RemoveDsn(name string) {
 			t.RemoveDsn(name)
 		}
 	}
+}
+
+func runtimeDir() (string, error) {
+	dir := filepath.Join(os.TempDir(), "qdevrunner")
+	if err := instance.PrivateDir(dir, os.Getuid()); err != nil {
+		return "", fmt.Errorf("runtime directory: %v", err)
+	}
+	return dir, nil
 }

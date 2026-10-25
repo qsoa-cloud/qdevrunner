@@ -29,7 +29,7 @@ func CreateSocket(filename string) (net.Listener, error) {
 		return nil, fmt.Errorf("cannot listen unix socket: %v", err)
 	}
 
-	if err := os.Chmod(filename, os.ModeSocket|0666); err != nil {
+	if err := os.Chmod(filename, 0o600); err != nil {
 		_ = conn.Close()
 		return nil, fmt.Errorf("cannot chmod unix socket: %v", err)
 	}

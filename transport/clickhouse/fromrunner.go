@@ -3,7 +3,6 @@ package clickhouse
 import (
 	"context"
 	"math/rand/v2"
-	"os"
 	"time"
 
 	"gopkg.qsoa.cloud/chproxy"
@@ -32,9 +31,6 @@ func (t *FromRunner) Serve(ctx context.Context) error {
 		return err
 	}
 	defer l.Close()
-	if err := os.Chmod(t.addr, 0o600); err != nil {
-		return err
-	}
 	return chproxy.Serve(ctx, l, t.lookup, t.observe)
 }
 

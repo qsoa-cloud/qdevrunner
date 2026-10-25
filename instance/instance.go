@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"gopkg.qsoa.cloud/qdevrunner/dfs/dfspb"
@@ -76,6 +77,7 @@ type Instance struct {
 	transports    []string // auto-discovered transports
 	stopping      bool     // true when Stop() was called
 	clickhouse   bool
+	uid          int
 
 	// Transports with live-update support.
 	mysqlTransport *mysql.MySql
@@ -103,6 +105,7 @@ func New(cfg Config, reg *registry.Registry, ts *tracer.Store, ms *metricsstore.
 		emailServer:  emailServer,
 		miscDir:      filepath.Join(baseDir, "misc"),
 		tmpDir:       filepath.Join(baseDir, "tmp"),
+		uid:          os.Getuid(),
 	}
 }
 
@@ -242,12 +245,15 @@ func (i *Instance) buildArgs() []string {
 // StartTransports creates directories and starts all FromRunner transports.
 // This is called for both managed and manual modes.
 func (i *Instance) StartTransports(ctx context.Context) error {
-	if err := os.MkdirAll(i.miscDir, 0777); err != nil {
-		return fmt.Errorf("cannot create misc dir: %v", err)
+	project := filepath.Join(i.cfg.BasePath, i.cfg.Project)
+	for _, dir := range []string{i.cfg.BasePath, project, filepath.Dir(i.miscDir), i.miscDir} {
+		if err := PrivateDir(dir, i.uid); err != nil {
+			return fmt.Errorf("cannot create runtime dir: %v", err)
+		}
 	}
 	// Clean stale service-side sockets from a previous run.
 	os.RemoveAll(i.tmpDir)
-	if err := os.MkdirAll(i.tmpDir, 0777); err != nil {
+	if err := PrivateDir(i.tmpDir, i.uid); err != nil {
 		return fmt.Errorf("cannot create tmp dir: %v", err)
 	}
 
@@ -609,3 +615,21 @@ func (i *Instance) captureOutput(r interface{ Read([]byte) (int, error) }, strea
 
 // Ensure Instance implements registry.Instance.
 var _ registry.Instance = (*Instance)(nil)
+
+// PrivateDir creates dir with mode 0700, or makes an existing directory owned by uid 0700.
+func PrivateDir(dir string, uid int) error {
+	if err := os.Mkdir(dir, 0o700); err != nil && !os.IsExist(err) {
+		return err
+	}
+	fi, err := os.Lstat(dir)
+	if err != nil {
+		return err
+	}
+	if !fi.IsDir() {
+		return fmt.Errorf("%s is not a directory", dir)
+	}
+	if owner := int(fi.Sys().(*syscall.Stat_t).Uid); owner != uid {
+		return fmt.Errorf("%s is owned by uid %d, not %d; remove it or set TMPDIR", dir, owner, uid)
+	}
+	return os.Chmod(dir, 0o700)
+}

@@ -27,6 +27,9 @@ func TestCreateSocket(t *testing.T) {
 	if info.Mode()&os.ModeSocket == 0 {
 		t.Error("expected socket file")
 	}
+	if m := info.Mode().Perm(); m != 0o600 {
+		t.Errorf("socket mode %o, want 600", m)
+	}
 
 	// Verify we can connect.
 	conn, err := net.Dial("unix", path)
