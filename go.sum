@@ -141,5 +141,7 @@ google.golang.org/grpc v1.84.0 h1:soMyaPJ8pAak5PIQ0DGBUir0XRo2fRoMqhNWMLlLxO0=
 google.golang.org/grpc v1.84.0/go.mod h1:ljCht0DrxQrXBDRTZp52Qxh3Ffk8CdYm2sj4O2QN2C0=
 google.golang.org/protobuf v1.36.12 h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=
 google.golang.org/protobuf v1.36.12/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
+gopkg.qsoa.cloud/chproxy v0.1.0 h1:4pTIsRAomw/Ar9/1Sw5YegoBs8D7AZdjn4+AbA+BQAA=
+gopkg.qsoa.cloud/chproxy v0.1.0/go.mod h1:zxM57ulEq1LzDIBjuAbluDcYirP9SysOUwYX9hzYQYU=
 gopkg.qsoa.cloud/grpccodec v0.1.0 h1:qQko9g++V5mImXZuLQNVLoF/6cxFoW5nKze/It0wLQs=
 gopkg.qsoa.cloud/grpccodec v0.1.0/go.mod h1:kNGbyt9qxYIEkb7oLo/ug9iOPevAeBNtcs+wIDT2btU=

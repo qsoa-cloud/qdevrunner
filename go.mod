@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/common v0.72.1
 	google.golang.org/grpc v1.84.0
 	google.golang.org/protobuf v1.36.12
-	gopkg.qsoa.cloud/chproxy v0.0.0
+	gopkg.qsoa.cloud/chproxy v0.1.0
 	gopkg.qsoa.cloud/grpccodec v0.1.0
 )
 
@@ -32,5 +32,3 @@ require (
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261012220534-4341edf3f941 // indirect
 )
-
-replace gopkg.qsoa.cloud/chproxy => ../chproxy
