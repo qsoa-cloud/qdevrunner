@@ -107,9 +107,10 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		name, _ := req.RequireString("name")
 		dsn, _ := req.RequireString("dsn")
-		dbType, _ := req.GetArguments()["type"].(string)
-		if dbType == "" {
-			dbType = "mysql"
+		t, _ := req.GetArguments()["type"].(string)
+		dbType, ok := DatabaseType(t)
+		if !ok {
+			return mcp.NewToolResultError(InvalidDatabaseType), nil
 		}
 		if dbType == "clickhouse" && !ValidClickHouseDsn(dsn) {
 			return mcp.NewToolResultError(InvalidClickHouseDsn), nil
@@ -128,12 +129,24 @@ func makeAddDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mc
 	}
 }
 
-const InvalidClickHouseDsn = "invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"
+const (
+	InvalidClickHouseDsn = "invalid ClickHouse DSN: want clickhouse://user:password@host:port/database"
+	InvalidDatabaseType  = "invalid database type: want mysql or clickhouse"
+)
 
-// ValidClickHouseDsn reports whether dsn is clickhouse://user[:password]@host:port[/database].
+// DatabaseType returns t, or mysql when t is empty, and whether it is a supported type.
+func DatabaseType(t string) (string, bool) {
+	if t == "" {
+		t = "mysql"
+	}
+	return t, t == "mysql" || t == "clickhouse"
+}
+
+// ValidClickHouseDsn reports whether dsn is clickhouse://user[:password]@host:port/database.
 func ValidClickHouseDsn(dsn string) bool {
 	u, err := url.Parse(dsn)
-	return err == nil && u.Scheme == "clickhouse" && u.Hostname() != "" && u.Port() != "" && u.User.Username() != ""
+	return err == nil && u.Scheme == "clickhouse" && u.Hostname() != "" && u.Port() != "" && u.User.Username() != "" &&
+		strings.TrimPrefix(u.Path, "/") != "" && u.RawQuery == ""
 }
 
 func makeRemoveDatabase(deps *Deps) func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {

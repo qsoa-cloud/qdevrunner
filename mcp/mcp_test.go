@@ -345,26 +345,43 @@ func TestAddDatabaseClickHouse(t *testing.T) {
 	if text, want := getTextContent(t, res), `Database "main" added (type: mysql, DSN: root:pw-my@tcp(localhost)/main)`; text != want {
 		t.Errorf("output %q, want %q", text, want)
 	}
+
+	callTool(t, add, map[string]interface{}{"name": "other", "type": "mysql", "dsn": "root@tcp(localhost)/other"})
+	if cfg.databases["other"] != "mysql:root@tcp(localhost)/other" || mgr["other"] != "root@tcp(localhost)/other" {
+		t.Errorf("config %q, mysql transport %q", cfg.databases["other"], mgr["other"])
+	}
 }
 
 func TestAddDatabaseRejectsBadClickHouseDsn(t *testing.T) {
-	for name, dsn := range map[string]string{
-		"mysql style":  "owner:pw-bad@tcp(127.0.0.1:3306)/events",
-		"no at":        "clickhouse://127.0.0.1:9000/events?password=pw-bad",
-		"no host":      "clickhouse://owner:pw-bad@:9000/events",
-		"no port":      "clickhouse://owner:pw-bad@127.0.0.1/events",
-		"no user":      "clickhouse://:pw-bad@127.0.0.1:9000/events",
-		"wrong scheme": "http://owner:pw-bad@127.0.0.1:9000/events",
-		"unparsable":   "clickhouse://owner:pw-bad@127.0.0.1:9000/%zz",
+	for name, tc := range map[string]struct{ typ, dsn string }{
+		"mysql style":    {"clickhouse", "owner:pw-bad@tcp(127.0.0.1:3306)/events"},
+		"no at":          {"clickhouse", "clickhouse://127.0.0.1:9000/events?password=pw-bad"},
+		"no host":        {"clickhouse", "clickhouse://owner:pw-bad@:9000/events"},
+		"no port":        {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1/events"},
+		"no user":        {"clickhouse", "clickhouse://:pw-bad@127.0.0.1:9000/events"},
+		"wrong scheme":   {"clickhouse", "http://owner:pw-bad@127.0.0.1:9000/events"},
+		"unparsable":     {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/%zz"},
+		"no database":    {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000"},
+		"empty database": {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/"},
+		"query":          {"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events?secure=true"},
+		"type case":      {"ClickHouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events"},
+		"unknown type":   {"postgres", "postgres://owner:pw-bad@127.0.0.1:5432/events"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			deps := testDeps()
 			cfg := deps.Config.(*mockConfig)
 			mgr := recordingDatabaseManager{}
 			deps.DatabaseManager = mgr
-			res := callTool(t, makeAddDatabase(deps), map[string]interface{}{"name": "events", "type": "clickhouse", "dsn": dsn})
+			res := callTool(t, makeAddDatabase(deps), map[string]interface{}{"name": "events", "type": tc.typ, "dsn": tc.dsn})
 			if !res.IsError {
 				t.Error("accepted")
+			}
+			want := InvalidClickHouseDsn
+			if tc.typ != "clickhouse" {
+				want = InvalidDatabaseType
+			}
+			if text := getTextContent(t, res); text != want {
+				t.Errorf("error %q, want %q", text, want)
 			}
 			if len(cfg.databases) != 0 || len(mgr) != 0 || cfg.savePath != "" {
 				t.Error("stored")

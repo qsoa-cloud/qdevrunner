@@ -34,7 +34,7 @@
         <!-- Databases -->
         <MDBTabPane tabId="databases">
           <div class="d-flex justify-content-end mb-3">
-            <MDBBtn color="primary" size="sm" @click="showAddDb = true">Add Database</MDBBtn>
+            <MDBBtn color="primary" size="sm" @click="form.type = 'mysql'; showAddDb = true">Add Database</MDBBtn>
           </div>
           <MDBTable v-if="Object.keys(config.databases).length > 0" striped hover small>
             <thead><tr><th>Name</th><th>Type</th><th>DSN</th><th width="100"></th></tr></thead>
@@ -95,12 +95,16 @@
     </MDBModalHeader>
     <MDBModalBody>
       <MDBInput v-model="form.name" label="Name" class="mb-4" />
+      <select v-model="form.type" class="form-select mb-4" aria-label="Type">
+        <option value="mysql">MySQL</option>
+        <option value="clickhouse">ClickHouse</option>
+      </select>
       <MDBInput v-model="form.dsn" label="DSN" class="mb-2" />
-      <div class="form-text">e.g. root:pass@tcp(127.0.0.1:3306)/mydb</div>
+      <div class="form-text">e.g. {{ form.type === 'clickhouse' ? 'clickhouse://user:password@127.0.0.1:9000/mydb' : 'root:pass@tcp(127.0.0.1:3306)/mydb' }}</div>
     </MDBModalBody>
     <MDBModalFooter>
       <MDBBtn color="secondary" @click="showAddDb = false">Cancel</MDBBtn>
-      <MDBBtn color="primary" @click="addResource('databases', {name: form.name, dsn: form.dsn}); showAddDb = false">Add</MDBBtn>
+      <MDBBtn color="primary" @click="addResource('databases', {name: form.name, type: form.type, dsn: form.dsn}); showAddDb = false">Add</MDBBtn>
     </MDBModalFooter>
   </MDBModal>
 

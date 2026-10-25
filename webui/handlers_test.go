@@ -215,25 +215,38 @@ func TestHandleConfigManagementAddDatabase(t *testing.T) {
 }
 
 func TestHandleConfigManagementAddClickHouseDatabase(t *testing.T) {
-	for _, tc := range []struct {
-		dsn  string
-		code int
+	for i, tc := range []struct {
+		typ, dsn, err string
 	}{
-		{"owner:pw-bad@tcp(127.0.0.1:3306)/events", http.StatusBadRequest},
-		{"clickhouse://owner:pw-ok@127.0.0.1:9000/events", http.StatusOK},
+		{"clickhouse", "owner:pw-bad@tcp(127.0.0.1:3306)/events", mcppkg.InvalidClickHouseDsn},
+		{"clickhouse", "clickhouse://owner:pw-ok@127.0.0.1:9000/events", ""},
+		{"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000", mcppkg.InvalidClickHouseDsn},
+		{"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/", mcppkg.InvalidClickHouseDsn},
+		{"clickhouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events?secure=true", mcppkg.InvalidClickHouseDsn},
+		{"ClickHouse", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", mcppkg.InvalidDatabaseType},
+		{"postgres", "postgres://owner:pw-bad@127.0.0.1:5432/events", mcppkg.InvalidDatabaseType},
+		{"mysql", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", clickHouseDsnForMysql},
+		{"", "clickhouse://owner:pw-bad@127.0.0.1:9000/events", clickHouseDsnForMysql},
+		{"mysql", "owner:pw-ok@tcp(127.0.0.1:3306)/events", ""},
 	} {
 		s := testServer()
 		cfg := s.mcpDeps.Config.(*mockConfigAccessor)
-		body := `{"name":"events","type":"clickhouse","dsn":"` + tc.dsn + `"}`
+		body := `{"name":"events","type":"` + tc.typ + `","dsn":"` + tc.dsn + `"}`
 		req := httptest.NewRequest(http.MethodPost, "/api/config/databases/add", strings.NewReader(body))
 		w := httptest.NewRecorder()
 		s.handleConfigManagement(w, req)
 
-		if w.Code != tc.code {
-			t.Errorf("code %d, want %d", w.Code, tc.code)
+		code := http.StatusOK
+		if tc.err != "" {
+			code = http.StatusBadRequest
 		}
-		if stored := cfg.databases["events"] == tc.dsn; stored != (tc.code == http.StatusOK) || cfg.saved != stored {
-			t.Errorf("stored %v, saved %v", stored, cfg.saved)
+		var resp map[string]string
+		json.Unmarshal(w.Body.Bytes(), &resp)
+		if w.Code != code || resp["error"] != tc.err {
+			t.Errorf("row %d: %d %q, want %d %q", i, w.Code, resp["error"], code, tc.err)
+		}
+		if stored := cfg.databases["events"] == tc.dsn; stored != (tc.err == "") || cfg.saved != stored {
+			t.Errorf("row %d: stored %v, saved %v", i, stored, cfg.saved)
 		}
 		if strings.Contains(w.Body.String(), "pw-") || strings.Contains(w.Body.String(), "127.0.0.1") {
 			t.Error("response reveals the DSN")
