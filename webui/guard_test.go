@@ -111,6 +111,10 @@ func TestForeignHostRefused(t *testing.T) {
 		{":8090", ""},
 		{":8090", "192.168.1.5:8090"},
 		{"0.0.0.0:8090", "192.168.1.5:8090"},
+		{"0.0.0.0:8090", "0.0.0.0:8090"},
+		{"0.0.0.0:8090", "[::]:8090"},
+		{"[::]:8090", "[::]:8090"},
+		{"[::]:8090", "0.0.0.0:8090"},
 	} {
 		cfg, h := guardServer(tc.addr)
 		for _, r := range []struct{ method, path, body string }{
@@ -147,6 +151,10 @@ func TestOwnOriginAllowed(t *testing.T) {
 		{uiHost, "localhost:5173", "http://localhost:5173"},
 		{"devbox.lan:8090", "devbox.lan:8090", "http://devbox.lan:8090"},
 		{"192.168.1.5:8090", "192.168.1.5:8090", ""},
+		{"0.0.0.0:8090", "localhost:8090", ""},
+		{"0.0.0.0:8090", "127.0.0.1:8090", ""},
+		{"[::]:8090", "localhost:8090", ""},
+		{"[::]:8090", "[::1]:8090", ""},
 	} {
 		cfg, h := guardServer(tc.addr)
 		if w := serve(h, http.MethodGet, "/api/config", tc.host, tc.origin, ""); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "project_name") {

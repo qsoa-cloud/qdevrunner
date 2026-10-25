@@ -10,6 +10,9 @@ import (
 // localOnly refuses foreign Host headers, and writes or upgrades from a foreign Origin.
 func localOnly(addr string, next http.Handler) http.Handler {
 	listenHost, _, _ := net.SplitHostPort(addr)
+	if ip := net.ParseIP(listenHost); ip != nil && ip.IsUnspecified() {
+		listenHost = ""
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		safe := (r.Method == http.MethodGet || r.Method == http.MethodHead) && r.Header.Get("Upgrade") == ""
 		if !allowedHost(r.Host, listenHost) || !safe && !sameOrigin(r) {

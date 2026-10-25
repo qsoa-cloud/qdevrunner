@@ -153,7 +153,7 @@ A service that imports `gopkg.qsoa.cloud/service/qclickhouse` opens a configured
 
 Open http://127.0.0.1:8090 (default address).
 
-The Web UI accepts only a loopback host (`localhost`, `127.0.0.1`, `[::1]`) or the host in `[webui] addr`. With `addr` set to `:8090` or `0.0.0.0:8090`, only loopback names are accepted, so to open the UI from another machine, set `addr` to the IP or hostname of the machine running qdevrunner.
+The Web UI accepts only a loopback host (`localhost`, `127.0.0.1`, `[::1]`) or the host in `[webui] addr`. With `addr` set to `:8090`, `0.0.0.0:8090` or `[::]:8090`, only loopback names are accepted, so to open the UI from another machine, set `addr` to the IP or hostname of the machine running qdevrunner.
 
 - **Dashboard** -- Service cards with status, start/stop/restart, HTTP links, run commands for manual mode.
 - **Traces** -- Trace list grouped by trace ID. Click to see the span tree with progress bars, tags, and logs.
