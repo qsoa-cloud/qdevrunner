@@ -60,12 +60,16 @@ func (t *FromRunner) observe(db, result string, d time.Duration) {
 			db = invalidDb
 		}
 	}
+	name := "clickhouse connect"
+	if db != "" {
+		name += " " + db
+	}
 	now := time.Now()
 	t.store.Add(tracer.SpanRecord{
 		Service:    t.service,
 		ReceivedAt: now,
 		Span: tracer.Span{
-			Operation:  "clickhouse connect " + db,
+			Operation:  name,
 			StartTime:  now.Add(-d),
 			FinishTime: now,
 			Ctx:        tracer.SpanContext{TraceID: rand.Uint64() | 1, SpanID: rand.Uint64() | 1},

@@ -75,7 +75,7 @@ type Instance struct {
 	binPath       string   // built binary path
 	transports    []string // auto-discovered transports
 	stopping      bool     // true when Stop() was called
-	clickhouse    bool
+	clickhouse   bool
 
 	// Transports with live-update support.
 	mysqlTransport *mysql.MySql

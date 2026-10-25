@@ -111,7 +111,7 @@ func TestObserveHidesUnknownNames(t *testing.T) {
 			t.Error("span contains the raw database name")
 		}
 	}
-	if want := map[string]int{"clickhouse connect <invalid>|<invalid>": 2, "clickhouse connect |": 1}; !maps.Equal(ops, want) {
+	if want := map[string]int{"clickhouse connect <invalid>|<invalid>": 2, "clickhouse connect|": 1}; !maps.Equal(ops, want) {
 		for k, n := range ops {
 			t.Errorf("span %.60q x%d", k, n)
 		}
