@@ -51,10 +51,8 @@ func (t *FromRunner) observe(db, result string, d time.Duration) {
 	if t.store == nil {
 		return
 	}
-	if db != "" {
-		if _, ok := t.dsns()[db]; !ok {
-			db = invalidDb
-		}
+	if db != "" && result == "unknown_db" {
+		db = invalidDb
 	}
 	name := "clickhouse connect"
 	if db != "" {

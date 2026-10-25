@@ -95,8 +95,8 @@ func TestObserveHidesUnknownNames(t *testing.T) {
 	tr.observe(long, "unknown_db", time.Millisecond)
 	tr.observe(quoted, "unknown_db", time.Millisecond)
 	tr.observe("", "handshake", time.Millisecond)
-	if reads != 2 {
-		t.Errorf("config read %d times, want 2", reads)
+	if reads != 0 {
+		t.Errorf("config read %d times, want 0", reads)
 	}
 
 	spans := store.RecentSpans(10)
@@ -115,6 +115,33 @@ func TestObserveHidesUnknownNames(t *testing.T) {
 		for k, n := range ops {
 			t.Errorf("span %.60q x%d", k, n)
 		}
+	}
+}
+
+func TestObserveReadsNoConfig(t *testing.T) {
+	store := tracer.NewStore(10)
+	reads := 0
+	tr := NewFromRunner("svc", "", func() map[string]string { reads++; return map[string]string{"events": dsnEvents} }, store)
+	for _, tc := range []struct{ db, result, op, tag string }{
+		{"events", "ok", "clickhouse connect events", "events"},
+		{"events", "lookup", "clickhouse connect events", "events"},
+		{"events", "backend", "clickhouse connect events", "events"},
+		{"nope", "unknown_db", "clickhouse connect <invalid>", "<invalid>"},
+		{"", "unknown_db", "clickhouse connect", ""},
+		{"", "handshake", "clickhouse connect", ""},
+		{"", "ok", "clickhouse connect", ""},
+	} {
+		tr.observe(tc.db, tc.result, time.Millisecond)
+		rec := store.RecentSpans(1)[0]
+		if rec.Span.Operation != tc.op || rec.Span.Tags["db"] != tc.tag || rec.Span.Tags["result"] != tc.result {
+			t.Errorf("observe(%q, %q): %q %v", tc.db, tc.result, rec.Span.Operation, rec.Span.Tags)
+		}
+	}
+	if reads != 0 {
+		t.Errorf("observe read the config %d times", reads)
+	}
+	if _, err := tr.lookup(context.Background(), "events"); err != nil || reads != 1 {
+		t.Errorf("lookup read the config %d times, %v", reads, err)
 	}
 }
 
